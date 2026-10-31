@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Fountain Court — Interactive Splash Pad</title>
+<style>
+  :root {
+    --glass: rgba(18, 16, 30, 0.55);
+    --line: rgba(255, 255, 255, 0.12);
+    --text: #ece9ff;
+    --dim: rgba(236, 233, 255, 0.55);
+    --accent: #b98cff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #1a1820; overflow: hidden; color: var(--text);
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  canvas { display: block; touch-action: none; }
+
+  .title { position: fixed; top: 22px; left: 26px; pointer-events: none; user-select: none; }
+  .title h1 { margin: 0; font-size: 13px; letter-spacing: 0.38em; font-weight: 600; }
+  .title p { margin: 6px 0 0; font-size: 11px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; }
+
+  .now { position: fixed; top: 22px; right: 26px; text-align: right; pointer-events: none; user-select: none; }
+  .now .label { font-size: 10px; letter-spacing: 0.24em; color: var(--dim); text-transform: uppercase; }
+  .now .name { font-size: 15px; margin-top: 4px; font-weight: 500; letter-spacing: 0.04em; }
+  .now .bar { width: 140px; height: 2px; background: var(--line); margin: 8px 0 0 auto; border-radius: 2px; overflow: hidden; }
+  .now .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4f8bff, #b46bff, #ff5fc4, #3dffa8); }
+
+  .dock { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    display: flex; gap: 6px; align-items: center; padding: 6px; border-radius: 16px;
+    background: var(--glass); border: 1px solid var(--line);
+    backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+    max-width: calc(100vw - 20px); overflow-x: auto; scrollbar-width: none; }
+  .dock::-webkit-scrollbar { display: none; }
+  .group { display: flex; gap: 2px; padding: 0 4px; border-right: 1px solid var(--line); }
+  .group:last-child { border-right: 0; }
+  .dock button, .dock select {
+    appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: var(--text);
+    font: inherit; font-size: 12px; letter-spacing: 0.02em; padding: 8px 11px; border-radius: 10px; cursor: pointer;
+    white-space: nowrap; transition: background .2s, color .2s; }
+  .dock select { padding-right: 24px; background-image: linear-gradient(45deg, transparent 50%, var(--dim) 50%), linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+    background-position: calc(100% - 13px) 52%, calc(100% - 9px) 52%; background-size: 4px 4px; background-repeat: no-repeat; }
+  .dock select option { background: #15131f; color: var(--text); }
+  .dock button:hover, .dock select:hover { background: rgba(255,255,255,0.07); }
+  .dock button.on { background: rgba(185, 140, 255, 0.2); color: #fff; }
+  .dock .tag { font-size: 10px; letter-spacing: 0.18em; color: var(--dim); text-transform: uppercase; align-self: center; padding: 0 4px 0 6px; }
+
+  .hint { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    font-size: 11px; letter-spacing: 0.12em; color: var(--dim); text-transform: uppercase; pointer-events: none;
+    transition: opacity 1.2s; white-space: nowrap; }
+
+  .loader { position: fixed; inset: 0; display: grid; place-items: center; background: #1a1820; z-index: 10; transition: opacity .8s; }
+  .loader span { font-size: 11px; letter-spacing: 0.3em; color: var(--dim); }
+
+  @media (max-width: 640px) {
+    .title { top: 16px; left: 16px; }
+    .now { top: 16px; right: 16px; }
+    .now .bar { width: 100px; }
+    .dock .tag { display: none; }
+    .hint { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="loader" id="loader"><span>FILLING THE FOUNTAIN…</span></div>
+
+<div class="title">
+  <h1>FOUNTAIN COURT</h1>
+  <p>Interactive splash pad</p>
+</div>
+
+<div class="now">
+  <div class="label">Now playing</div>
+  <div class="name" id="seqName">—</div>
+  <div class="bar"><i id="seqBar"></i></div>
+</div>
+
+<div class="hint" id="hint">Drag to look around 360° · Tap the plaza to trigger jets</div>
+
+<div class="dock">
+  <div class="group">
+    <span class="tag">Show</span>
+    <select id="seqSelect" aria-label="Sequence"></select>
+    <button id="loopBtn" title="Repeat the current show instead of moving on">Loop</button>
+  </div>
+  <div class="group">
+    <span class="tag">Light</span>
+    <select id="palSelect" aria-label="Palette"></select>
+  </div>
+  <div class="group">
+    <button id="mistBtn" class="on" title="Fog / mist effects">Mist</button>
+    <button id="soundBtn" title="Water sound">Sound</button>
+  </div>
+  <div class="group">
+    <button data-view="orbit" class="on">Orbit</button>
+    <button data-view="low">Low</button>
+    <button data-view="top">Top</button>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ---------------------------------------------------------------------------
+// Quality tier
+// ---------------------------------------------------------------------------
+const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || Math.min(innerWidth, innerHeight) < 600;
+const Q = isMobile
+  ? { dpr: Math.min(devicePixelRatio, 1.5), maxParticles: 26000, emit: 0.55, refl: 0.4, mist: 160 }
+  : { dpr: Math.min(devicePixelRatio, 2), maxParticles: 70000, emit: 1.0, refl: 0.6, mist: 280 };
+
+const GRAVITY = 9.8;
+const MAX_H = 4.2;          // tallest jet height (m)
+const HORIZON = new THREE.Color(0x1d1b23);
+
+// ---------------------------------------------------------------------------
+// Renderer / scene / camera
+// ---------------------------------------------------------------------------
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Q.dpr);
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(HORIZON, 0.012);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 800);
+camera.position.set(10.5, 3.4, 10.5);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.4, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 2.5;
+controls.maxDistance = 30;
+controls.maxPolarAngle = Math.PI * 0.495;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.35;
+controls.enablePan = false;
+
+// ---------------------------------------------------------------------------
+// Backdrop: same charcoal gradient as the PXL viewer's night mode
+// ---------------------------------------------------------------------------
+{
+  const c = document.createElement('canvas'); c.width = 2; c.height = 256;
+  const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#1d1b23'); g.addColorStop(0.55, '#2c2934'); g.addColorStop(1, '#0f0e13');
+  x.fillStyle = g; x.fillRect(0, 0, 2, 256);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = tex;
+}
+
+// ---------------------------------------------------------------------------
+// Fountain layout: 7x7 floor grid of vertical jets + an outer ring of arcing jets
+// ---------------------------------------------------------------------------
+const jets = [];
+const GRID = 7, SPACING = 1.3;
+for (let ix = 0; ix < GRID; ix++) for (let iz = 0; iz < GRID; iz++) {
+  const x = (ix - (GRID - 1) / 2) * SPACING, z = (iz - (GRID - 1) / 2) * SPACING;
+  jets.push({ kind: 'grid', x, z, ix, iz, r: Math.hypot(x, z), a: Math.atan2(z, x),
+              strength: 0, target: 0, burst: 0, color: new THREE.Color(), emitAcc: 0 });
+}
+const RING = 16, RING_R = 6.4;
+for (let i = 0; i < RING; i++) {
+  const a = (i / RING) * Math.PI * 2;
+  jets.push({ kind: 'ring', x: Math.cos(a) * RING_R, z: Math.sin(a) * RING_R, i, ix: i, iz: 0, r: RING_R, a,
+              strength: 0, target: 0, burst: 0, color: new THREE.Color(), emitAcc: 0 });
+}
+const NJ = jets.length;
+
+// ---------------------------------------------------------------------------
+// Wet reflective plaza floor (Reflector with a custom wet-stone + LED light-pool shader)
+// ---------------------------------------------------------------------------
+// Realistic ripples (ported from the PXL viewer): each landing drop sends out a
+// short train of waves. They aren't drawn on top — they tilt the floor's surface
+// normal, which bends the reflected image and catches light on the wave faces.
+const ND = isMobile ? 28 : 80;            // live ripples at once
+const RIP_LIFE = 1.7;
+const FloorShader = {
+  name: 'WetPlaza',
+  uniforms: {
+    color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null },
+    uTime: { value: 0 },
+    uJets: { value: [] }, uJetCol: { value: [] }, uDrops: { value: [] },
+    uRipK: { value: (Math.PI * 2) / 0.11 },    // ~11 cm wavelength
+    uRipSpeed: { value: 0.55 },                // m/s ring-front speed
+    uRipLife: { value: RIP_LIFE },
+    uRipAmp: { value: 0.011 },
+  },
+  vertexShader: `
+    uniform mat4 textureMatrix; varying vec4 vUv; varying vec3 vW;
+    void main(){ vUv = textureMatrix * vec4(position, 1.0); vW = (modelMatrix * vec4(position,1.0)).xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    #define NJ ${NJ}
+    #define ND ${ND}
+    uniform sampler2D tDiffuse; uniform float uTime;
+    uniform vec3 uJets[NJ]; uniform vec3 uJetCol[NJ]; uniform vec3 uDrops[ND];
+    uniform float uRipK, uRipSpeed, uRipLife, uRipAmp;
+    varying vec4 vUv; varying vec3 vW;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+    float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+      return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y); }
+
+    // surface slope (dh/dx, dh/dz) at p from one drop d = (x, z, startTime)
+    vec2 rippleSlope(vec2 p, vec3 d){
+      float age = uTime - d.z;
+      if (age < 0.0 || age > uRipLife) return vec2(0.0);
+      vec2 dv = p - d.xy; float r = length(dv);
+      float R = uRipSpeed * age;
+      float lambda = 6.2831853 / uRipK;
+      float W = lambda * 4.0;                      // a train of ~4 waves behind the front
+      if (r > R + lambda || r < R - W - lambda) return vec2(0.0);
+      float env = smoothstep(R - W, R - W * 0.35, r) * (1.0 - smoothstep(R - lambda * 0.35, R + lambda * 0.35, r));
+      float life = 1.0 - age / uRipLife;
+      float slope = uRipAmp * life * sqrt(life) * uRipK * cos(uRipK * (r - R)) * env;
+      return dv / max(r, 1e-4) * slope;
+    }
+
+    void main(){
+      vec2 p = vW.xz; float r = length(p); float t = uTime;
+      float wet = clamp(smoothstep(11.0, 4.0, r) * 0.85 + 0.15, 0.0, 1.0);
+      float reach = 1.0 - smoothstep(6.0, 16.0, r);
+
+      // ripple wave field + a faint shimmer from the thin film of running water
+      vec2 rs = vec2(0.0);
+      for (int i = 0; i < ND; i++) rs += rippleSlope(p, uDrops[i]);
+      vec2 film = (vec2(noise(p * 3.0 + t * 0.7), noise(p * 3.0 - t * 0.6 + 5.0)) - 0.5) * 0.05 * wet;
+      vec2 slope = rs + film;
+
+      // Fresnel: water reflects ~2% looking straight down, far more at grazing angles
+      vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
+      vec3 V = normalize(cameraPosition - vW);
+      float cosT = clamp(dot(n, V), 0.0, 1.0);
+      float F = 0.02 + 0.98 * pow(1.0 - cosT, 5.0);
+
+      // reflection, bent by the ripples, slightly softened (wet stone isn't a perfect mirror)
+      vec2 ruv = vUv.xy / vUv.w + slope * 0.07;
+      vec2 o = vec2(0.0012, 0.0035);
+      vec3 refl = texture2D(tDiffuse, ruv).rgb * 0.4
+        + (texture2D(tDiffuse, ruv + o).rgb + texture2D(tDiffuse, ruv - o).rgb
+         + texture2D(tDiffuse, ruv + vec2(-o.x, o.y)).rgb + texture2D(tDiffuse, ruv + vec2(o.x, -o.y)).rgb) * 0.15;
+      float reflK = (0.05 + 0.8 * F) * mix(0.3, 1.0, wet);
+
+      vec3 base = vec3(0.012, 0.011, 0.016);
+      vec3 col = base + refl * reflK * reach;
+
+      // colored LED light pools around each nozzle
+      vec3 pool = vec3(0.0);
+      for (int i = 0; i < NJ; i++) {
+        vec2 d = p - uJets[i].xy; float d2 = dot(d, d);
+        float s = uJets[i].z;
+        pool += uJetCol[i] * (exp(-d2 * 90.0) * (0.08 + 0.45 * s) + exp(-d2 * 2.5) * 0.018 * s);
+      }
+      col += pool * (0.35 + 0.65 * wet) * reach;
+
+      // light caught on ripple faces: slopes tilted toward the viewer glint, backs darken
+      vec2 vdir = normalize(V.xz + 1e-5);
+      float facing = dot(-rs, vdir) * 2.2;
+      float lit = clamp(facing, 0.0, 1.0), shade = clamp(-facing, 0.0, 1.0);
+      col += (pool * 2.5 + refl * 0.25 + vec3(0.06, 0.068, 0.085)) * lit * reach;
+      col *= 1.0 - shade * 0.4;
+
+      float alpha = 1.0 - smoothstep(7.0, 18.0, r);
+      gl_FragColor = vec4(col, alpha);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`
+};
+const floorGeo = new THREE.CircleGeometry(20, 96);
+const floor = new Reflector(floorGeo, {
+  shader: FloorShader,
+  textureWidth: Math.floor(innerWidth * Q.dpr * Q.refl),
+  textureHeight: Math.floor(innerHeight * Q.dpr * Q.refl),
+  multisample: isMobile ? 0 : 4,
+  clipBias: 0.002
+});
+floor.rotation.x = -Math.PI / 2;
+floor.material.transparent = true;
+floor.renderOrder = -1;   // draw before the water so the spray always sits on top
+const floorU = floor.material.uniforms;
+floorU.uJets.value = jets.map(j => new THREE.Vector3(j.x, -j.z, 0)); // plane local XY -> world XZ (z flipped by rotation)
+floorU.uJetCol.value = jets.map(() => new THREE.Color());
+floorU.uDrops.value = Array.from({ length: ND }, () => new THREE.Vector3(0, 0, -1e4));
+// world xz used in shader comes from vW so positions are in world space:
+floorU.uJets.value.forEach((v, i) => v.set(jets[i].x, jets[i].z, 0));
+scene.add(floor);
+
+// ---------------------------------------------------------------------------
+// Nozzles: steel caps + LED rings (instanced)
+// ---------------------------------------------------------------------------
+const capMesh = new THREE.InstancedMesh(new THREE.CircleGeometry(0.03, 16).rotateX(-Math.PI / 2),
+  new THREE.MeshStandardMaterial({ color: 0x6d7080, metalness: 1, roughness: 0.3 }), NJ);
+const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+const ringMesh = new THREE.InstancedMesh(new THREE.RingGeometry(0.034, 0.052, 24).rotateX(-Math.PI / 2), ringMat, NJ);
+{
+  const m = new THREE.Matrix4();
+  jets.forEach((j, i) => {
+    capMesh.setMatrixAt(i, m.makeTranslation(j.x, 0.004, j.z));
+    ringMesh.setMatrixAt(i, m.makeTranslation(j.x, 0.006, j.z));
+    ringMesh.setColorAt(i, new THREE.Color(0, 0, 0));
+  });
+}
+scene.add(capMesh, ringMesh);
+
+// Soft fill so the steel nozzle caps read
+scene.add(new THREE.HemisphereLight(0xcfc8ff, 0x2a1830, 0.3));
+
+// ---------------------------------------------------------------------------
+// Palettes (blues · purples · pinks · greens)
+// ---------------------------------------------------------------------------
+const PALETTES = {
+  'Fountain Court': ['#2a6bff', '#18c8ff', '#7b46ff', '#c03dff', '#ff3fae', '#ff6fd0', '#2dffa0', '#14d7c4'],
+  'Sweep':          ['#2a6bff', '#7b46ff', '#ff3fae', '#2dffa0'],
+  'Ocean':          ['#0a3dff', '#1a8bff', '#18d6ff', '#1ef0d0', '#3a5bff'],
+  'Aurora':         ['#2dffa0', '#14d7c4', '#7b46ff', '#b04dff', '#2dff6a'],
+  'Candy':          ['#ff3fae', '#ff7ad9', '#b04dff', '#ff4f8a'],
+};
+const palCols = {};
+for (const k in PALETTES) palCols[k] = PALETTES[k].map(h => new THREE.Color(h));
+let paletteName = 'Fountain Court';
+const _c = new THREE.Color();
+function samplePalette(u, out) {
+  const cols = palCols[paletteName], n = cols.length;
+  if (!Number.isFinite(u)) u = 0;
+  u = ((u % 1) + 1) % 1 * n; const i = Math.floor(u), f = u - i;
+  const s = f * f * (3 - 2 * f);
+  return out.copy(cols[i]).lerp(cols[(i + 1) % n], s);
+}
+
+// ---------------------------------------------------------------------------
+// Choreography — each sequence returns a jet strength 0..1 and a palette position
+// ---------------------------------------------------------------------------
+const pulse = (x, w = 0.35) => { x = ((x % 1) + 1) % 1; return Math.max(0, 1 - Math.abs(x - 0.5) / w) ** 1.5; };
+const hash1 = n => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
+
+const SEQUENCES = [
+  { name: 'Rolling Wave', dur: 14, mist: false,
+    grid: (j, t) => pulse(j.x * 0.11 - t * 0.38, 0.26),
+    ring: (j, t) => 0.75 * pulse(Math.cos(j.a) * 0.11 - t * 0.38 + 0.2, 0.26),
+    hue: (j, t) => j.x * 0.03 + t * 0.04 },
+  { name: 'Ripple Bloom', dur: 14, mist: true,
+    grid: (j, t) => pulse(j.r * 0.16 - t * 0.55, 0.22),
+    ring: (j, t) => 0.4 * pulse(t * 0.55 - 0.1, 0.25),
+    hue: (j, t) => j.r * 0.05 - t * 0.05 + 0.25 },
+  { name: 'Checker Beat', dur: 12, mist: false,
+    grid: (j, t) => { const beat = Math.floor(t * 1.6); const on = ((j.ix + j.iz + beat) % 2) === 0; const ph = (t * 1.6) % 1; return on ? 0.35 + 0.65 * Math.max(0, 1 - ph * 1.3) : 0; },
+    ring: (j, t) => ((j.i + Math.floor(t * 1.6)) % 2 ? 0.6 : 0),
+    hue: (j, t) => Math.floor(t * 1.6) * 0.17 + ((j.ix + j.iz) % 2) * 0.35 },
+  { name: 'Spiral Chase', dur: 14, mist: false,
+    grid: (j, t) => pulse(j.a / (Math.PI * 2) + j.r * 0.07 - t * 0.45, 0.18),
+    ring: (j, t) => pulse(j.i / RING - t * 0.45, 0.16),
+    hue: (j, t) => j.a / (Math.PI * 2) + t * 0.05 },
+  { name: 'Summer Rain', dur: 12, mist: true,
+    grid: (j, t) => { const slot = Math.floor(t * 2.2 + hash1(j.ix * 13 + j.iz) * 7); const r = hash1(slot * 3.1 + j.ix * 7.7 + j.iz * 1.3); const ph = (t * 2.2 + hash1(j.ix * 13 + j.iz) * 7) % 1; return r > 0.62 ? (r - 0.62) / 0.38 * Math.sin(ph * Math.PI) : 0; },
+    ring: () => 0,
+    hue: (j, t) => hash1(j.ix * 3 + j.iz * 11) * 0.6 + t * 0.03 },
+  { name: 'Breathe', dur: 12, mist: true,
+    grid: (j, t) => Math.pow(Math.max(0, Math.sin(t * 0.9 - j.r * 0.25)), 1.3) * (0.95 - j.r * 0.06),
+    ring: (j, t) => 0.6 * Math.pow(Math.max(0, -Math.sin(t * 0.9)), 1.3),
+    hue: (j, t) => t * 0.07 },
+  { name: 'Crossfire', dur: 12, mist: false,
+    grid: (j, t) => Math.max(pulse((j.x + j.z) * 0.08 - t * 0.5, 0.18), pulse((j.x - j.z) * 0.08 + t * 0.5, 0.18)),
+    ring: (j, t) => pulse(j.i / RING * 2 + t * 0.5, 0.2),
+    hue: (j, t) => (j.x + j.z > 0 ? 0.0 : 0.5) + t * 0.05 },
+  { name: 'Grand Finale', dur: 9, mist: true,
+    grid: (j, t) => 0.75 + 0.25 * Math.sin(t * 6 + j.r),
+    ring: () => 1.0,
+    hue: (j, t) => Math.floor(t * 2.5) * 0.23 + j.r * 0.04 },
+];
+const seqSelect = document.getElementById('seqSelect');
+SEQUENCES.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; seqSelect.appendChild(o); });
+const palSelect = document.getElementById('palSelect');
+Object.keys(PALETTES).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = k; palSelect.appendChild(o); });
+
+const REST = 3.2;   // seconds of quiet between shows
+const show = { loop: false, resting: false, restT: 0, next: 0, idx: 0, prev: -1, t: 0, prevT: 0, blend: 1 };
+function startSequence(i, fromRest = false) {
+  show.prev = show.idx; show.prevT = show.t; show.idx = i; show.t = 0; show.blend = fromRest ? 1 : 0; show.resting = false;
+  document.getElementById('seqName').textContent = SEQUENCES[i].name;
+  seqSelect.value = String(i);
+  if (SEQUENCES[i].mist && mistOn) mistBurst(SEQUENCES[i].name === 'Grand Finale' ? 1.6 : 1.0);
+}
+
+// ---------------------------------------------------------------------------
+// Water particles (CPU ballistic sim, packed buffers, additive glow rendering)
+// ---------------------------------------------------------------------------
+const MAXP = Q.maxParticles;
+const pPos = new Float32Array(MAXP * 3), pVel = new Float32Array(MAXP * 3);
+const pCol = new Float32Array(MAXP * 4), pSize = new Float32Array(MAXP);
+const pLife = new Float32Array(MAXP), pMax = new Float32Array(MAXP), pA = new Float32Array(MAXP);
+const pBounced = new Uint8Array(MAXP);
+let pCount = 0;
+
+const pGeo = new THREE.BufferGeometry();
+const posAttr = new THREE.BufferAttribute(pPos, 3).setUsage(THREE.DynamicDrawUsage);
+const colAttr = new THREE.BufferAttribute(pCol, 4).setUsage(THREE.DynamicDrawUsage);
+const sizeAttr = new THREE.BufferAttribute(pSize, 1).setUsage(THREE.DynamicDrawUsage);
+pGeo.setAttribute('position', posAttr); pGeo.setAttribute('pcol', colAttr); pGeo.setAttribute('size', sizeAttr);
+pGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 3, 0), 20);
+
+const waterMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: { uScale: { value: 1 } },
+  vertexShader: `
+    attribute vec4 pcol; attribute float size; uniform float uScale; varying vec4 vC;
+    void main(){
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_Position = projectionMatrix * mv;
+      gl_PointSize = max(1.0, size * uScale / -mv.z);
+      float h = clamp(position.y / ${MAX_H.toFixed(1)}, 0.0, 1.0);
+      vC = pcol;
+      float sh = sqrt(h);
+      vec3 waterCol = vec3(0.78, 0.87, 1.0);                      // clear water catching light
+      vC.rgb = mix(waterCol, pcol.rgb, mix(0.85, 0.38, sh));       // LED tint fades as the water rises
+      vC.rgb *= mix(1.15, 0.7, sh);
+      vC.a *= clamp(1.0 - (-mv.z - 30.0) / 30.0, 0.0, 1.0);
+    }`,
+  fragmentShader: `
+    varying vec4 vC;
+    void main(){
+      vec2 c = gl_PointCoord - 0.5; float d = dot(c, c) * 4.0;
+      if (d > 1.0) discard;
+      float a = exp(-d * 2.6);
+      gl_FragColor = vec4(vC.rgb, vC.a * a);
+    }`
+});
+const water = new THREE.Points(pGeo, waterMat);
+water.frustumCulled = false;
+scene.add(water);
+
+function emit(j, dt, strength) {
+  const h = Math.max(0.15, strength * MAX_H * (j.kind === 'ring' ? 0.8 : 1));
+  const vy0 = Math.sqrt(2 * GRAVITY * h);
+  const rate = (j.kind === 'ring' ? 380 : 470) * Q.emit * Math.min(1, strength * 2.2 + 0.1);
+  j.emitAcc += rate * dt;
+  let n = Math.floor(j.emitAcc); j.emitAcc -= n;
+  const c = j.color;
+  const inX = -Math.cos(j.a), inZ = -Math.sin(j.a);
+  while (n-- > 0 && pCount < MAXP) {
+    const i = pCount++;
+    const core = Math.random() < 0.6;
+    const spread = core ? 0.05 : 0.28 + strength * 0.15;
+    const ang = Math.random() * Math.PI * 2, rr = Math.random() * spread;
+    let vx = Math.cos(ang) * rr, vz = Math.sin(ang) * rr;
+    const vy = vy0 * (core ? 1 - Math.random() * 0.03 : 0.82 + Math.random() * 0.16);
+    if (j.kind === 'ring') { vx += inX * vy * 0.42; vz += inZ * vy * 0.42; }
+    const sub = Math.random() * dt;
+    pPos[i * 3] = j.x + vx * sub; pPos[i * 3 + 1] = 0.02 + vy * sub; pPos[i * 3 + 2] = j.z + vz * sub;
+    pVel[i * 3] = vx; pVel[i * 3 + 1] = vy - GRAVITY * sub; pVel[i * 3 + 2] = vz;
+    pCol[i * 4] = c.r; pCol[i * 4 + 1] = c.g; pCol[i * 4 + 2] = c.b;
+    pA[i] = core ? 0.15 : 0.11; pCol[i * 4 + 3] = pA[i];
+    pSize[i] = core ? 0.055 + Math.random() * 0.03 : 0.04 + Math.random() * 0.05;
+    pMax[i] = (2 * vy) / GRAVITY + 0.3; pLife[i] = 0; pBounced[i] = 0;
+  }
+}
+
+function killParticle(i) {
+  const last = --pCount;
+  if (i === last) return;
+  pPos[i * 3] = pPos[last * 3]; pPos[i * 3 + 1] = pPos[last * 3 + 1]; pPos[i * 3 + 2] = pPos[last * 3 + 2];
+  pVel[i * 3] = pVel[last * 3]; pVel[i * 3 + 1] = pVel[last * 3 + 1]; pVel[i * 3 + 2] = pVel[last * 3 + 2];
+  pCol[i * 4] = pCol[last * 4]; pCol[i * 4 + 1] = pCol[last * 4 + 1]; pCol[i * 4 + 2] = pCol[last * 4 + 2]; pCol[i * 4 + 3] = pCol[last * 4 + 3];
+  pSize[i] = pSize[last]; pLife[i] = pLife[last]; pMax[i] = pMax[last]; pA[i] = pA[last]; pBounced[i] = pBounced[last];
+}
+
+// Ripple drops: landing water starts a ripple in the floor shader (oldest is recycled)
+let dropHead = 0, dropBudget = 0, nowT = 0;
+function addDrop(x, z, force = false) {
+  if (!force) { if (dropBudget < 1) return; dropBudget -= 1; }
+  floorU.uDrops.value[dropHead].set(x, z, nowT);
+  dropHead = (dropHead + 1) % ND;
+}
+
+let splashCount = 0;
+function updateParticles(dt) {
+  splashCount = 0;
+  dropBudget = Math.min(dropBudget + dt * ND / RIP_LIFE, 6);   // frame-rate independent ripple rate
+  const drag = Math.exp(-0.25 * dt);
+  for (let i = pCount - 1; i >= 0; i--) {
+    pLife[i] += dt;
+    const k = i * 3;
+    pVel[k + 1] -= GRAVITY * dt;
+    pVel[k] *= drag; pVel[k + 2] *= drag;
+    pPos[k] += pVel[k] * dt; pPos[k + 1] += pVel[k + 1] * dt; pPos[k + 2] += pVel[k + 2] * dt;
+    if (pPos[k + 1] < 0) {
+      if (!pBounced[i]) {
+        splashCount++;
+        if (Math.random() < 0.08) addDrop(pPos[k], pPos[k + 2]);
+      }
+      if (!pBounced[i] && Math.random() < 0.42) {
+        // splash crown: droplets kick up and outward off the wet floor, turning clear/white
+        pBounced[i] = 1;
+        pPos[k + 1] = 0.001;
+        const impact = Math.min(1, Math.abs(pVel[k + 1]) / 8);
+        const sp = (0.35 + Math.random() * 1.0) * (0.5 + impact), a = Math.random() * Math.PI * 2;
+        pVel[k] = pVel[k] * 0.15 + Math.cos(a) * sp; pVel[k + 2] = pVel[k + 2] * 0.15 + Math.sin(a) * sp;
+        pVel[k + 1] = (0.6 + Math.random() * 1.4) * (0.4 + impact);
+        pCol[i * 4] += (1 - pCol[i * 4]) * 0.6; pCol[i * 4 + 1] += (1 - pCol[i * 4 + 1]) * 0.6; pCol[i * 4 + 2] += (1 - pCol[i * 4 + 2]) * 0.6;
+        pSize[i] *= 0.55; pA[i] *= 1.1; pLife[i] = 0; pMax[i] = 0.35 + Math.random() * 0.35;
+      } else { killParticle(i); continue; }
+    }
+    const lifeT = pLife[i] / pMax[i];
+    if (lifeT > 1) { killParticle(i); continue; }
+    pCol[i * 4 + 3] = pA[i] * (pBounced[i] ? 1 - lifeT : 1);
+  }
+  pGeo.setDrawRange(0, pCount);
+  posAttr.clearUpdateRanges?.(); colAttr.clearUpdateRanges?.(); sizeAttr.clearUpdateRanges?.();
+  posAttr.addUpdateRange(0, pCount * 3); colAttr.addUpdateRange(0, pCount * 4); sizeAttr.addUpdateRange(0, pCount);
+  posAttr.needsUpdate = colAttr.needsUpdate = sizeAttr.needsUpdate = true;
+}
+
+// ---------------------------------------------------------------------------
+// Mist / fog puffs — glowing low clouds tinted by the LED show
+// ---------------------------------------------------------------------------
+const MM = Q.mist;
+const mPos = new Float32Array(MM * 3), mCol = new Float32Array(MM * 4), mSize = new Float32Array(MM), mRot = new Float32Array(MM);
+const mLife = new Float32Array(MM).fill(1), mDur = new Float32Array(MM).fill(1), mVel = new Float32Array(MM * 3);
+const mGeo = new THREE.BufferGeometry();
+mGeo.setAttribute('position', new THREE.BufferAttribute(mPos, 3).setUsage(THREE.DynamicDrawUsage));
+mGeo.setAttribute('pcol', new THREE.BufferAttribute(mCol, 4).setUsage(THREE.DynamicDrawUsage));
+mGeo.setAttribute('size', new THREE.BufferAttribute(mSize, 1).setUsage(THREE.DynamicDrawUsage));
+mGeo.setAttribute('rot', new THREE.BufferAttribute(mRot, 1));
+const mistMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: { uScale: { value: 1 }, uTime: { value: 0 } },
+  vertexShader: `
+    attribute vec4 pcol; attribute float size; attribute float rot; uniform float uScale; varying vec4 vC; varying float vR;
+    void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); gl_Position = projectionMatrix * mv;
+      gl_PointSize = min(size * uScale / -mv.z, 900.0); vC = pcol; vR = rot;
+      vC.a *= smoothstep(0.6, 2.5, -mv.z); }`,          // fade when the camera is inside the cloud
+  fragmentShader: `
+    uniform float uTime; varying vec4 vC; varying float vR;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+    float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+      return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
+    void main(){
+      vec2 c = gl_PointCoord - 0.5; float cs = cos(vR), sn = sin(vR); c = mat2(cs,-sn,sn,cs) * c;
+      float d = length(c) * 2.0; if (d > 1.0) discard;
+      float n = noise(c * 4.0 + vR * 10.0 + uTime * 0.15) * 0.6 + noise(c * 9.0 - uTime * 0.2) * 0.4;
+      float a = smoothstep(1.0, 0.1, d) * (0.45 + 0.75 * n);
+      gl_FragColor = vec4(vC.rgb, vC.a * a);
+    }`
+});
+const mist = new THREE.Points(mGeo, mistMat);
+mist.frustumCulled = false;
+scene.add(mist);
+
+let mistOn = true, mistQueue = 0;
+function spawnMist(x, z, big = 1) {
+  for (let i = 0; i < MM; i++) {
+    if (mLife[i] < mDur[i]) continue;
+    mPos[i * 3] = x + (Math.random() - 0.5) * 1.2; mPos[i * 3 + 1] = 0.15 + Math.random() * 0.35; mPos[i * 3 + 2] = z + (Math.random() - 0.5) * 1.2;
+    const a = Math.random() * Math.PI * 2, s = 0.15 + Math.random() * 0.35;
+    mVel[i * 3] = Math.cos(a) * s; mVel[i * 3 + 1] = 0.05 + Math.random() * 0.12; mVel[i * 3 + 2] = Math.sin(a) * s;
+    mLife[i] = 0; mDur[i] = (5 + Math.random() * 4) * big; mRot[i] = Math.random() * 6.28;
+    mSize[i] = 0;
+    mGeo.attributes.rot.needsUpdate = true;
+    return true;
+  }
+  return false;
+}
+function mistBurst(intensity = 1) { mistQueue += Math.floor(MM * 0.4 * intensity); }
+
+function updateMist(dt, t) {
+  // release queued puffs over ~2s so the fog rolls out rather than popping
+  const release = Math.min(mistQueue, Math.ceil(MM * 0.4 * dt * 2));
+  for (let k = 0; k < release; k++) {
+    const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 6.0;
+    spawnMist(Math.cos(a) * r, Math.sin(a) * r, 1);
+  }
+  mistQueue -= release;
+  for (let i = 0; i < MM; i++) {
+    if (mLife[i] >= mDur[i]) { mCol[i * 4 + 3] = 0; mSize[i] = 0; continue; }
+    mLife[i] += dt;
+    const lt = mLife[i] / mDur[i];
+    mPos[i * 3] += mVel[i * 3] * dt; mPos[i * 3 + 1] += mVel[i * 3 + 1] * dt * (1 - lt); mPos[i * 3 + 2] += mVel[i * 3 + 2] * dt;
+    mRot[i] += dt * 0.08;
+    mSize[i] = 1.6 + lt * 3.2;
+    // tint by the colour of the nearest part of the show
+    const x = mPos[i * 3], z = mPos[i * 3 + 2];
+    samplePalette(Math.atan2(z, x) / 6.283 * 0.5 + Math.hypot(x, z) * 0.04 + t * 0.05, _c);
+    mCol[i * 4] = 0.12 + _c.r * 0.88; mCol[i * 4 + 1] = 0.12 + _c.g * 0.88; mCol[i * 4 + 2] = 0.15 + _c.b * 0.85;
+    mCol[i * 4 + 3] = 0.022 * Math.sin(Math.PI * Math.min(1, lt * 1.15)) ;
+  }
+  mGeo.attributes.rot.needsUpdate = true;
+  mGeo.attributes.position.needsUpdate = mGeo.attributes.pcol.needsUpdate = mGeo.attributes.size.needsUpdate = true;
+}
+
+// ---------------------------------------------------------------------------
+// Tap the plaza to trigger jets (splash-pad "stomp")
+// ---------------------------------------------------------------------------
+const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3();
+const taps = []; // {x, z, t}
+let downAt = null, lastInteract = -10;
+renderer.domElement.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY }; lastInteract = clock.elapsedTime; controls.autoRotate = false; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt) return;
+  const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y); downAt = null;
+  if (moved > 6) return;
+  ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  if (!raycaster.ray.intersectPlane(groundPlane, hit)) return;
+  if (Math.hypot(hit.x, hit.z) > 9) return;
+  taps.push({ x: hit.x, z: hit.z, t: clock.elapsedTime });
+  for (let k = 0; k < 3; k++) addDrop(hit.x + (Math.random() - 0.5) * 0.15, hit.z + (Math.random() - 0.5) * 0.15, true);
+  if (mistOn && Math.random() < 0.35) for (let k = 0; k < 14; k++) spawnMist(hit.x, hit.z, 0.6);
+  hideHint();
+});
+
+// ---------------------------------------------------------------------------
+// Camera views
+// ---------------------------------------------------------------------------
+const VIEWS = {
+  orbit:  { pos: [10.5, 3.4, 10.5], target: [0, 1.4, 0], rotate: true },
+  low:    { pos: [9.5, 0.45, 4.5], target: [0, 1.8, 0], rotate: true },
+  top:    { pos: [0.01, 22, 6], target: [0, 0, 0], rotate: true },
+};
+let camTween = null;
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x === b));
+  const v = VIEWS[b.dataset.view];
+  camTween = { t: 0, fromP: camera.position.clone(), toP: new THREE.Vector3(...v.pos), fromT: controls.target.clone(), toT: new THREE.Vector3(...v.target) };
+  controls.autoRotate = v.rotate; lastInteract = -10;
+}));
+
+// ---------------------------------------------------------------------------
+// UI wiring
+// ---------------------------------------------------------------------------
+// Picking a show jumps to it; the program keeps playing on from there unless Loop is on
+seqSelect.addEventListener('change', () => { startSequence(+seqSelect.value); seqSelect.blur(); });
+const loopBtn = document.getElementById('loopBtn');
+loopBtn.addEventListener('click', () => { show.loop = !show.loop; loopBtn.classList.toggle('on', show.loop); });
+palSelect.addEventListener('change', () => { paletteName = palSelect.value; });
+const mistBtn = document.getElementById('mistBtn');
+mistBtn.addEventListener('click', () => { mistOn = !mistOn; mistBtn.classList.toggle('on', mistOn); if (mistOn) mistBurst(0.8); else mistQueue = 0; });
+const hintEl = document.getElementById('hint');
+let hintHidden = false;
+function hideHint() { if (!hintHidden) { hintHidden = true; hintEl.style.opacity = 0; } }
+setTimeout(hideHint, 9000);
+
+// Water sound (procedural — filtered noise that swells with the show)
+let audio = null;
+const soundBtn = document.getElementById('soundBtn');
+soundBtn.addEventListener('click', () => {
+  if (!audio) {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const len = ctx.sampleRate * 3, buf = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); let last = 0;
+      for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = (last + 0.04 * w) / 1.04; d[i] = w * 0.6 + last * 3.0; } }
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 280;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
+    const gain = ctx.createGain(); gain.gain.value = 0;
+    src.connect(hp).connect(lp).connect(gain).connect(ctx.destination); src.start();
+    audio = { ctx, gain, lp, on: true };
+  } else {
+    audio.on = !audio.on;
+    if (audio.on) audio.ctx.resume(); else audio.gain.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.2);
+  }
+  soundBtn.classList.toggle('on', audio.on);
+});
+
+// ---------------------------------------------------------------------------
+// Post-processing
+// ---------------------------------------------------------------------------
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(Q.dpr);
+composer.setSize(innerWidth, innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.45, 0.42);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+function syncScale() {
+  const h = renderer.getDrawingBufferSize(new THREE.Vector2()).y;
+  const s = h / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+  waterMat.uniforms.uScale.value = s; mistMat.uniforms.uScale.value = s;
+}
+syncScale();
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+  floor.getRenderTarget().setSize(Math.floor(innerWidth * Q.dpr * Q.refl), Math.floor(innerHeight * Q.dpr * Q.refl));
+  syncScale();
+});
+
+// ---------------------------------------------------------------------------
+// Main loop
+// ---------------------------------------------------------------------------
+const clock = new THREE.Clock();
+const DT_CAP = +new URLSearchParams(location.search).get('dtcap') || 1 / 30;
+const tmpCol = new THREE.Color();
+let nextRandomMist = 18;
+startSequence(0);
+
+function tick() {
+  requestAnimationFrame(tick);
+  try { frame(); } catch (err) { console.error(err); }
+}
+function frame() {
+  const dt = Math.min(clock.getDelta(), DT_CAP);
+  const t = clock.elapsedTime;
+  nowT = t;
+
+  // --- show timeline
+  show.t += dt; show.blend = Math.min(1, show.blend + dt / 1.6);
+  const seq = SEQUENCES[show.idx], prev = show.prev >= 0 ? SEQUENCES[show.prev] : seq;
+  if (show.resting) {
+    show.restT += dt;
+    if (show.restT > REST) startSequence(show.next, true);
+  } else if (show.t > seq.dur) {
+    show.resting = true; show.restT = 0;
+    show.next = show.loop ? show.idx : (show.idx + 1) % SEQUENCES.length;
+  }
+  document.getElementById('seqBar').style.width = (show.resting ? 0 : Math.min(1, show.t / seq.dur) * 100) + '%';
+  const restMul = show.resting ? 0 : 1;
+  const tb = show.blend * show.blend * (3 - 2 * show.blend);
+
+  if (mistOn && t > nextRandomMist) { mistBurst(0.5); nextRandomMist = t + 22 + Math.random() * 16; }
+
+  // --- jets: target strength from choreography + tap bursts, smoothed like a real valve
+  let activity = 0;
+  for (let i = 0; i < NJ; i++) {
+    const j = jets[i];
+    const f = j.kind === 'grid' ? 'grid' : 'ring';
+    let target = THREE.MathUtils.lerp(prev[f](j, show.prevT + show.t), seq[f](j, show.t), tb) * restMul;
+    // tap ripple: jets fire as the ring passes them
+    for (const tp of taps) {
+      const d = Math.hypot(j.x - tp.x, j.z - tp.z), age = t - tp.t, front = age * 5.0;
+      const w = Math.exp(-((d - front) ** 2) * 1.5) * Math.max(0, 1 - age / 2.2);
+      target = Math.max(target, w * (j.kind === 'ring' ? 0.8 : 1.0));
+    }
+    target = THREE.MathUtils.clamp(target, 0, 1);
+    const rate = target > j.strength ? 10 : 4.5;
+    j.strength += (target - j.strength) * (1 - Math.exp(-rate * dt));
+    activity += j.strength;
+
+    const hue = THREE.MathUtils.lerp(prev.hue(j, show.prevT + show.t), seq.hue(j, show.t), tb);
+    samplePalette(hue, tmpCol); j.color.lerp(tmpCol, 1 - Math.exp(-6 * dt));
+
+    if (j.strength > 0.03) emit(j, dt, j.strength);
+
+    floorU.uJets.value[i].z = j.strength;
+    floorU.uJetCol.value[i].copy(j.color);
+    ringMesh.setColorAt(i, tmpCol.copy(j.color).multiplyScalar(0.3 + 1.1 * j.strength));
+  }
+  ringMesh.instanceColor.needsUpdate = true;
+  activity /= NJ;
+  while (taps.length && t - taps[0].t > 2.5) taps.shift();
+
+  // tap flash ring expands and fades
+
+  updateParticles(dt);
+  updateMist(dt, t);
+
+  // --- colored lights follow the show
+
+  // --- audio follows splash activity
+  if (audio && audio.on) {
+    const g = 0.04 + activity * 0.22 + Math.min(0.1, splashCount / 4000);
+    audio.gain.gain.setTargetAtTime(g, audio.ctx.currentTime, 0.15);
+    audio.lp.frequency.setTargetAtTime(1800 + activity * 2600, audio.ctx.currentTime, 0.3);
+  }
+
+  // --- camera
+  if (camTween) {
+    camTween.t = Math.min(1, camTween.t + dt / 1.6);
+    const e = 1 - Math.pow(1 - camTween.t, 3);
+    camera.position.lerpVectors(camTween.fromP, camTween.toP, e);
+    controls.target.lerpVectors(camTween.fromT, camTween.toT, e);
+    if (camTween.t >= 1) camTween = null;
+  }
+  if (!controls.autoRotate && t - lastInteract > 8 && !camTween) controls.autoRotate = true;
+  controls.update();
+
+  floorU.uTime.value = t;
+  mistMat.uniforms.uTime.value = t;
+
+  composer.render();
+}
+requestAnimationFrame(() => {
+  tick();
+  const l = document.getElementById('loader'); l.style.opacity = 0; setTimeout(() => l.remove(), 900);
+});
+</script>
+</body>
+</html>
