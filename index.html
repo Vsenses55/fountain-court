@@ -116,6 +116,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 // ---------------------------------------------------------------------------
 // Quality tier
@@ -691,6 +692,22 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.45, 0.42);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
+// Dither: a sub-visible amount of noise (about one 8-bit step) applied last, so
+// the dark, slow glows on the floor don't show as banded stripes.
+composer.addPass(new ShaderPass({
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; varying vec2 vUv;
+    float ign(vec2 p){ return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+    void main(){
+      vec4 c = texture2D(tDiffuse, vUv);
+      // triangular noise in [-1, 1] LSB: hides banding without visible grain
+      float n = ign(gl_FragCoord.xy) + ign(gl_FragCoord.xy + vec2(47.0, 113.0)) - 1.0;
+      c.rgb += n / 255.0;
+      gl_FragColor = c;
+    }`
+}));
 
 function syncScale() {
   const h = renderer.getDrawingBufferSize(new THREE.Vector2()).y;
