@@ -473,7 +473,8 @@ const WRAP_GLSL = `
   for (let a = 0; a < N_ARCH; a++) frames.setMatrixAt(a, m.identity());
   frames.frustumCulled = false;
   // InstancedMesh multiplies by instanceMatrix only when the shader includes it; ours doesn't, so offsets come from `off`.
-  scene.add(frames);
+  // frames hidden: the LEDs float on their own
+  // scene.add(frames);
 }
 
 // ---------------------------------------------------------------------------
