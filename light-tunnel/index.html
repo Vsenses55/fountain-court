@@ -119,6 +119,11 @@
     <button data-pace="3.2">Fast</button>
   </div>
   <div class="group">
+    <span class="tag">View</span>
+    <button data-view="inside" class="on">Inside</button>
+    <button data-view="afar">Afar</button>
+  </div>
+  <div class="group">
     <span class="tag">Route</span>
     <button data-route="straight">Straight</button>
     <button data-route="winding" class="on">Winding</button>
@@ -199,7 +204,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 200);
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 260);
 camera.position.set(0, EYE, 0);
 camera.rotation.order = 'YXZ';
 
@@ -324,7 +329,7 @@ const shared = {
   uPal: palUniform, uPalN: palN,
   uShowA: { value: 0 }, uShowB: { value: 0 }, uTA: { value: 0 }, uTB: { value: 0 }, uMix: { value: 1 },
   uTravel: { value: 0 }, uScale: { value: 1 }, uTime: { value: 0 },
-  uCamS: { value: 0 }, uBend: { value: 1 },
+  uCamS: { value: 0 }, uBend: { value: 1 }, uNear: { value: NEAR }, uBackW: { value: 0.5 },
 };
 
 // Winding route: the centreline drifts side to side as a sum of slow sines.
@@ -348,8 +353,15 @@ const pXdd = S => -4 * 0.045 * 0.045 * Math.sin(S * 0.045) - 1.8 * 0.11 * 0.11 *
 
 // GLSL that recycles a z position so the tunnel never ends
 const WRAP_GLSL = `
-  uniform float uTravel;
-  float wrapZ(float baseZ){ return mod(baseZ + uTravel, ${L.toFixed(3)}) + ${(NEAR - L).toFixed(3)}; }
+  uniform float uTravel, uNear, uBackW;
+  // the window of tunnel that exists runs from uNear (behind) to uNear - L (far ahead);
+  // moving uNear changes which copy of an arch is drawn, never where an arch is
+  float wrapZ(float baseZ){ return mod(baseZ + uTravel - uNear, ${L.toFixed(3)}) + uNear - ${L.toFixed(3)}; }
+  // fade at both ends of the window: far ahead into the haze, and behind (only visible from the far view)
+  float endFade(float z, float farW){
+    float far = -z, farEnd = ${L.toFixed(3)} - uNear;
+    return (1.0 - smoothstep(farEnd - farW, farEnd - 2.0, far)) * (1.0 - smoothstep(uNear - uBackW, uNear, z));
+  }
   float archK(float z){ return floor(-(z - uTravel) / ${SP.toFixed(3)} + 0.5); }
 ` + PATH_GLSL;
 
@@ -385,7 +397,7 @@ const WRAP_GLSL = `
       ${SHOW_GLSL}
       uniform float uScale;
       attribute vec4 prm;
-      varying vec3 vC; varying float vA;
+      varying vec3 vC; varying float vA; varying float vHalf, vBulb, vGlow;
       void main(){
         vec3 p = position; p.z = wrapZ(position.z);
         float k = archK(p.z);
@@ -393,22 +405,38 @@ const WRAP_GLSL = `
         vec4 mv = modelViewMatrix * vec4(pathPos(-p.z, p.x, p.y), 1.0);
         gl_Position = projectionMatrix * mv;
         float dist = -mv.z;
-        float size = 0.1 * uScale / max(dist, 0.05);
-        // fade sub-pixel LEDs instead of letting them shimmer
+        float ppm = uScale / max(dist, 0.05);          // pixels per metre at this LED
+        float size = 0.1 * ppm;
+        // up close: a small, hard-edged bulb with a tight glow capped in pixels, so near LEDs stay crisp
+        float bulb = 0.019 * ppm;
+        float glow = min(0.022 * ppm, 5.0) + 1.0;
+        float crispSize = 2.0 * (bulb + glow * 2.2);
+        float crisp = 1.0;   // sharp bulb + short glow at every distance
+        float ps = mix(size, crispSize, crisp);
+        // far away: fade sub-pixel LEDs instead of letting them shimmer
         vA = clamp(size / 1.6, 0.0, 1.0);
-        gl_PointSize = max(size, 1.6);
-        float far = -p.z;
-        vA *= (1.0 - smoothstep(${(L * 0.55).toFixed(1)}, ${(L - NEAR - 2.0).toFixed(1)}, far)) * exp(-far * 0.02);
+        gl_PointSize = max(ps, 1.6);
+        vHalf = max(ps, 1.6) * 0.5; vBulb = bulb; vGlow = glow * crisp;
+        float far = max(-p.z, 0.0);
+        vA *= endFade(p.z, 22.0) * exp(-far * 0.02);
         vA *= 0.9 + 0.2 * prm.z;              // slight per-bulb variation
         vC = c * 1.35;
       }`,
     fragmentShader: `
-      varying vec3 vC; varying float vA;
+      varying vec3 vC; varying float vA; varying float vHalf, vBulb, vGlow;
       void main(){
         vec2 c = gl_PointCoord - 0.5; float d = dot(c, c) * 4.0;
         if (d > 1.0) discard;
+        // soft profile (distance)
         float halo = exp(-d * 3.0), core = exp(-d * 14.0);
-        vec3 col = vC * halo + vec3(dot(vC, vec3(0.33))) * core * 0.9;
+        vec3 soft = vC * halo + vec3(dot(vC, vec3(0.33))) * core * 0.9;
+        // crisp profile (close): anti-aliased disc + short glow
+        float rpx = sqrt(d) * vHalf;
+        float disc = 1.0 - smoothstep(vBulb - 0.8, vBulb + 0.8, rpx);
+        float g = exp(-max(rpx - vBulb, 0.0) / max(vGlow * 0.45, 0.001)) * 0.55;
+        vec3 hot = mix(vC, vec3(max(vC.r, max(vC.g, vC.b))), 0.45);   // bulb centre runs a little whiter
+        vec3 crisp = vC * g + hot * disc * 1.5;
+        vec3 col = crisp;
         gl_FragColor = vec4(col, vA);
       }`
   });
@@ -432,7 +460,7 @@ const WRAP_GLSL = `
       void main(){
         vec3 p = position; p.z += wrapZ(off);
         vec4 mv = modelViewMatrix * vec4(pathPos(-p.z, p.x, p.y), 1.0);
-        vF = 1.0 - smoothstep(${(L * 0.4).toFixed(1)}, ${(L - NEAR - 2.0).toFixed(1)}, -p.z);
+        vF = endFade(p.z, 30.0);
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `varying float vF; void main(){ gl_FragColor = vec4(vec3(0.035, 0.033, 0.045), vF); }`,
@@ -455,14 +483,14 @@ const FloorShader = {
   name: 'WetPath',
   uniforms: {
     color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null },
-    uTravel: shared.uTravel, uTime: shared.uTime, uCamS: shared.uCamS, uBend: shared.uBend, uGlow: { value: new THREE.Color() },
+    uTravel: shared.uTravel, uTime: shared.uTime, uCamS: shared.uCamS, uBend: shared.uBend, uNear: shared.uNear, uBackW: shared.uBackW, uGlow: { value: new THREE.Color() },
   },
   vertexShader: `
     uniform mat4 textureMatrix; varying vec4 vUv; varying vec3 vW;
     void main(){ vUv = textureMatrix * vec4(position, 1.0); vW = (modelMatrix * vec4(position,1.0)).xyz;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTravel, uTime; uniform vec3 uGlow;
+    uniform sampler2D tDiffuse; uniform float uTravel, uTime, uNear, uBackW; uniform vec3 uGlow;
     ${PATH_GLSL}
     varying vec4 vUv; varying vec3 vW;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
@@ -500,14 +528,15 @@ const FloorShader = {
       float legs = exp(-pow(abs(lat) - ${R.toFixed(2)}, 2.0) * 1.6);
       vec3 col = base + refl * reflK + uGlow * (legs * 0.08 + 0.012) * (0.6 + grit * 0.5);
 
-      float alpha = (1.0 - smoothstep(${(L * 0.45).toFixed(1)}, ${(L - NEAR - 4.0).toFixed(1)}, far))
+      float farEnd = ${L.toFixed(3)} - uNear;
+      float alpha = (1.0 - smoothstep(farEnd - 26.0, farEnd - 4.0, far)) * (1.0 - smoothstep(uNear - 1.0 - uBackW, uNear - 1.0, -far))
                   * (1.0 - smoothstep(${(R + 0.3).toFixed(2)}, ${(R + 1.8).toFixed(2)}, abs(lat)));
       gl_FragColor = vec4(col, alpha);
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`
 };
-const floor = new Reflector(new THREE.PlaneGeometry(70, L + 6), {
+const floor = new Reflector(new THREE.PlaneGeometry(90, L + 44), {
   shader: FloorShader,
   textureWidth: Math.floor(innerWidth * Q.dpr * Q.refl),
   textureHeight: Math.floor(innerHeight * Q.dpr * Q.refl),
@@ -515,11 +544,11 @@ const floor = new Reflector(new THREE.PlaneGeometry(70, L + 6), {
   clipBias: 0.002,
 });
 floor.rotation.x = -Math.PI / 2;
-floor.position.z = NEAR - (L + 6) / 2 + 3;
+floor.position.z = 38 - (L + 44) / 2;
 floor.material.transparent = true;
 floor.renderOrder = -1;
 const floorU = floor.material.uniforms;
-floorU.uTravel = shared.uTravel; floorU.uTime = shared.uTime;
+floorU.uTravel = shared.uTravel; floorU.uTime = shared.uTime; floorU.uNear = shared.uNear; floorU.uBackW = shared.uBackW;
 scene.add(floor);
 
 // ---------------------------------------------------------------------------
@@ -528,11 +557,11 @@ scene.add(floor);
 const MM = Q.mist;
 const mistMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  uniforms: Object.assign({ uOn: { value: 1 } }, shared),
+  uniforms: Object.assign({ uOn: { value: 1 }, uView: { value: 0 } }, shared),
   vertexShader: `
     ${WRAP_GLSL}
     ${SHOW_GLSL}
-    uniform float uScale, uTime, uOn;
+    uniform float uScale, uTime, uOn, uView;
     attribute vec4 prm;
     varying vec3 vC; varying float vA; varying float vR;
     void main(){
@@ -548,7 +577,7 @@ const mistMat = new THREE.ShaderMaterial({
       gl_PointSize = min(prm.y * uScale / -mv.z, 1100.0);
       vC = c + 0.06;
       float far = -p.z;
-      vA = 0.05 * uOn * exp(-far * 0.045) * smoothstep(0.8, 3.0, -mv.z) * (1.0 - smoothstep(${(L * 0.5).toFixed(1)}, ${(L - NEAR - 2.0).toFixed(1)}, far));
+      vA = 0.05 * uOn * exp(-max(far, 0.0) * 0.045 * (1.0 - uView * 0.7)) * smoothstep(0.8, 3.0, -mv.z) * endFade(p.z, 24.0);
       vR = prm.z * 6.28;
     }`,
   fragmentShader: `
@@ -603,17 +632,25 @@ function startShow(i) {
 // ---------------------------------------------------------------------------
 const walk = { pace: 1.35, speed: 0, travel: 0, step: 0, lastStep: 0, boost: 0 };
 const look = { yaw: 0, pitch: 0.04, tYaw: 0, tPitch: 0.04, lastInput: -10 };
+const CHASE = { az: 0, el: 0.2 };
+const orbit = { az: CHASE.az, el: CHASE.el, tAz: CHASE.az, tEl: CHASE.el, dist: 14, lastInput: -10 };
 let drag = null;
 const el = renderer.domElement;
-el.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, yaw: look.tYaw, pitch: look.tPitch }; el.setPointerCapture(e.pointerId); hideHint(); });
+el.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, yaw: look.tYaw, pitch: look.tPitch, az: orbit.tAz, elv: orbit.tEl }; el.setPointerCapture(e.pointerId); hideHint(); });
 el.addEventListener('pointermove', e => {
   if (!drag) return;
   const s = 2.4 / Math.min(innerWidth, innerHeight);
+  if (viewAfar) {
+    orbit.tAz = THREE.MathUtils.clamp(drag.az - (e.clientX - drag.x) * s * 0.6, -0.4, 0.4);
+    orbit.tEl = THREE.MathUtils.clamp(drag.elv + (e.clientY - drag.y) * s * 0.6, 0.12, 0.75);
+    orbit.lastInput = clock.elapsedTime;
+    return;
+  }
   look.tYaw = THREE.MathUtils.clamp(drag.yaw + (e.clientX - drag.x) * s, -1.05, 1.05);
   look.tPitch = THREE.MathUtils.clamp(drag.pitch + (e.clientY - drag.y) * s, -0.35, 1.15);
   look.lastInput = clock.elapsedTime;
 });
-const endDrag = () => { drag = null; look.lastInput = clock.elapsedTime; };
+const endDrag = () => { drag = null; look.lastInput = orbit.lastInput = clock.elapsedTime; };
 el.addEventListener('pointerup', endDrag); el.addEventListener('pointercancel', endDrag);
 
 const PACES = [0, 0.7, 1.35, 3.2];
@@ -645,6 +682,12 @@ const loopBtn = document.getElementById('loopBtn');
 loopBtn.addEventListener('click', () => { show.loop = !show.loop; loopBtn.classList.toggle('on', show.loop); });
 palSelect.addEventListener('change', () => { paletteName = palSelect.value; applyPalette(); palSelect.blur(); });
 let routeWinding = true;
+let viewAfar = false;
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+  viewAfar = b.dataset.view === 'afar';
+  document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x === b));
+  look.lastInput = -10; orbit.lastInput = -10;
+}));
 document.querySelectorAll('[data-route]').forEach(b => b.addEventListener('click', () => {
   routeWinding = b.dataset.route === 'winding';
   document.querySelectorAll('[data-route]').forEach(x => x.classList.toggle('on', x === b));
@@ -705,7 +748,7 @@ const composer = new EffectComposer(renderer);
 composer.setPixelRatio(Q.dpr);
 composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.85, 0.55, 0.3);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.18, 0.5);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 composer.addPass(new ShaderPass({
@@ -739,6 +782,10 @@ addEventListener('resize', () => {
 // ---------------------------------------------------------------------------
 const clock = new THREE.Clock();
 let bank = 0;
+const view = { v: 0 };
+const qIn = new THREE.Quaternion(), qFar = new THREE.Quaternion(), eIn = new THREE.Euler();
+const pIn = new THREE.Vector3(), pFar = new THREE.Vector3(), lookM = new THREE.Matrix4(), UP = new THREE.Vector3(0, 1, 0);
+const FAR_TARGET = new THREE.Vector3(0, 2.4, -12);
 const tmpA = new THREE.Color(), tmpB = new THREE.Color();
 startShow(0); show.blend = 1;
 
@@ -783,7 +830,27 @@ function frame() {
   look.yaw += (look.tYaw - look.yaw) * (1 - Math.exp(-8 * dt));
   look.pitch += (look.tPitch - look.pitch) * (1 - Math.exp(-8 * dt));
   bank += (-pXdd(walk.travel) * shared.uBend.value * Math.min(1.5, Math.abs(walk.speed) / 1.35) * 1.6 - bank) * (1 - Math.exp(-2 * dt));
-  camera.rotation.set(look.pitch, -look.yaw, bank);
+  // inside camera
+  qIn.setFromEuler(eIn.set(look.pitch, -look.yaw, bank, 'YXZ'));
+  pIn.set(0, EYE, 0);
+  // far camera: third person — behind and above, looking down the same route
+  if (!drag && t - orbit.lastInput > 6) {
+    orbit.tAz += (CHASE.az - orbit.tAz) * (1 - Math.exp(-0.6 * dt));
+    orbit.tEl += (CHASE.el - orbit.tEl) * (1 - Math.exp(-0.6 * dt));
+  }
+  orbit.az += (orbit.tAz - orbit.az) * (1 - Math.exp(-6 * dt));
+  orbit.el += (orbit.tEl - orbit.el) * (1 - Math.exp(-6 * dt));
+  const ce = Math.cos(orbit.el);
+  pFar.set(Math.sin(orbit.az) * ce, Math.sin(orbit.el), Math.cos(orbit.az) * ce).multiplyScalar(orbit.dist).add(FAR_TARGET);
+  qFar.setFromRotationMatrix(lookM.lookAt(pFar, FAR_TARGET, UP));
+  // blend between them
+  view.v += ((viewAfar ? 1 : 0) - view.v) * (1 - Math.exp(-1.4 * dt));
+  const v = view.v * view.v * (3 - 2 * view.v);
+  camera.position.lerpVectors(pIn, pFar, v);
+  camera.quaternion.slerpQuaternions(qIn, qFar, v);
+  shared.uNear.value = THREE.MathUtils.lerp(NEAR, 14, v);
+  shared.uBackW.value = THREE.MathUtils.lerp(0.5, 6, v);
+  mistMat.uniforms.uView.value = v;
 
   if (audio && audio.on) audio.lp.frequency.setTargetAtTime(600 + b * 500 + sp * 120, audio.ctx.currentTime, 0.5);
 
