@@ -120,8 +120,8 @@
   </div>
   <div class="group">
     <span class="tag">View</span>
-    <button data-view="inside" class="on">Inside</button>
-    <button data-view="afar">Afar</button>
+    <button data-view="inside">Inside</button>
+    <button data-view="afar" class="on">Afar</button>
   </div>
   <div class="group">
     <span class="tag">Route</span>
@@ -683,7 +683,7 @@ const loopBtn = document.getElementById('loopBtn');
 loopBtn.addEventListener('click', () => { show.loop = !show.loop; loopBtn.classList.toggle('on', show.loop); });
 palSelect.addEventListener('change', () => { paletteName = palSelect.value; applyPalette(); palSelect.blur(); });
 let routeWinding = true;
-let viewAfar = false;
+let viewAfar = true;   // opens in the third-person view
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
   viewAfar = b.dataset.view === 'afar';
   document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x === b));
@@ -783,12 +783,12 @@ addEventListener('resize', () => {
 // ---------------------------------------------------------------------------
 const clock = new THREE.Clock();
 let bank = 0;
-const view = { v: 0 };
+const view = { v: 1 };
 const qIn = new THREE.Quaternion(), qFar = new THREE.Quaternion(), eIn = new THREE.Euler();
 const pIn = new THREE.Vector3(), pFar = new THREE.Vector3(), lookM = new THREE.Matrix4(), UP = new THREE.Vector3(0, 1, 0);
 const FAR_TARGET = new THREE.Vector3(0, 2.4, -12);
 const tmpA = new THREE.Color(), tmpB = new THREE.Color();
-startShow(0); show.blend = 1;
+startShow(3); show.blend = 1;   // opens on Spiral
 
 function frame() {
   const dt = Math.min(clock.getDelta(), 1 / 30);
