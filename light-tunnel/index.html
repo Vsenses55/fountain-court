@@ -28,7 +28,7 @@
   .title { position: fixed; top: calc(22px + env(safe-area-inset-top)); left: 26px; user-select: none; }
   .title h1 { margin: 0; font-size: 13px; letter-spacing: 0.38em; font-weight: 600; pointer-events: none; }
   .title p { margin: 6px 0 0; font-size: 11px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; pointer-events: none; }
-  .series { display: flex; gap: 6px; margin-top: 12px; }
+  .series { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
   .series a, .series span { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; text-decoration: none;
     color: var(--dim); padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass);
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
@@ -90,6 +90,7 @@
   <div class="series">
     <a href="../">01 Fountain Court</a>
     <span>02 Light Tunnel</span>
+    <a href="../projection-grove/">03 Projection Grove</a>
   </div>
 </div>
 

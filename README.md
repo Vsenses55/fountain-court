@@ -6,6 +6,7 @@ Interactive Three.js light shows by Visual Senses. Each page has a series switch
 |---|------|------|
 | 01 | **Fountain Court**: splash-pad fountain with choreographed jets, LEDs and mist | `/` |
 | 02 | **Light Tunnel**: glide through an endless, winding tunnel of LED arches | `/light-tunnel/` |
+| 03 | **Projection Grove**: psychedelic projection mapping on a night grove of trees | `/projection-grove/` |
 
 Live at **https://vsenses55.github.io/fountain-court/**
 
@@ -38,6 +39,17 @@ An endless tunnel of LED arches on the same backdrop, with the same bloom, mist 
 - **Route**: Straight or Winding (gentle left and right bends, with the view leaning into the turns)
 - **Mist** / **Sound**: haze and an ambient pad that changes chord with each show
 
+## 03 · Projection Grove
+
+Three big, bushy procedural trees at night (curved tapering limbs, bark, and about 30,000 leaf sprigs), with low shrubs and leaf litter. Three projectors throw live, generative imagery onto the grove, with visible beams, fog, drifting motes and a glowing light pool at the center. Six looks crossfade in sequence: Liquid Light, Fountain Ripples, Sap Rising, Living Lichen, Kaleidoscope and Op-Art Sweep.
+
+**Controls**
+
+- Drag to orbit, scroll or pinch to zoom
+- **Look**: jump to any of the 6 looks (or ← / →); **Loop** holds the current one (or Space)
+- **Orbit**: slow automatic camera orbit
+- **Mist** / **Beams**: fog and visible projector beams
+
 ---
 
 ## Files
@@ -45,6 +57,7 @@ An endless tunnel of LED arches on the same backdrop, with the same bloom, mist 
 ```
 index.html               Fountain Court (site home)
 light-tunnel/index.html  Light Tunnel
+projection-grove/index.html  Projection Grove
 .nojekyll                tells GitHub Pages to serve the files as-is
 ```
 
@@ -64,6 +77,6 @@ Then visit `http://localhost:8000`.
 
 Repo **Settings → Pages → Build and deployment → Deploy from a branch → `main` / root**. The site will be at `https://vsenses55.github.io/fountain-court/`, with the tunnel at `/fountain-court/light-tunnel/`.
 
-## Adding show No. 3
+## Adding another show
 
 Add a folder such as `next-show/index.html`, then add a pill for it to the `.series` block in each page. Use `<span>` for the current page and `<a href="…">` for the others.

@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Projection Grove — Light Show Series</title>
+<meta name="description" content="Psychedelic projection mapping on a night grove of trees, with six generative looks, in Three.js." />
+<meta name="theme-color" content="#1a1820" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Projection Grove — Light Show Series" />
+<meta property="og:description" content="Psychedelic projection mapping on a night grove of trees, with six generative looks, in Three.js." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a1820'/%3E%3Ccircle cx='32' cy='32' r='14' fill='none' stroke='%232dffa0' stroke-width='5' stroke-dasharray='2 5'/%3E%3C/svg%3E" />
+
+<style>
+  :root {
+    --glass: rgba(18, 16, 30, 0.55);
+    --line: rgba(255, 255, 255, 0.12);
+    --text: #ece9ff;
+    --dim: rgba(236, 233, 255, 0.55);
+    --accent: #b98cff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #030208; overflow: hidden; color: var(--text);
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  canvas { display: block; touch-action: none; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+
+  .title { position: fixed; top: calc(22px + env(safe-area-inset-top)); left: 26px; user-select: none; }
+  .title h1 { margin: 0; font-size: 13px; letter-spacing: 0.38em; font-weight: 600; pointer-events: none; }
+  .title p { margin: 6px 0 0; font-size: 11px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; pointer-events: none; }
+  .series { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .series a, .series span { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; text-decoration: none;
+    color: var(--dim); padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .series a:hover { color: var(--text); border-color: rgba(255,255,255,0.3); }
+  .series span { color: #fff; border-color: rgba(185, 140, 255, 0.55); background: rgba(185, 140, 255, 0.18); }
+  .fade { position: fixed; inset: 0; background: #1a1820; opacity: 0; pointer-events: none; transition: opacity .45s; z-index: 20; }
+  .fade.on { opacity: 1; }
+  .nogl { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: #1a1820; z-index: 30;
+    font-size: 12px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; line-height: 1.8; }
+
+  .now { position: fixed; top: calc(22px + env(safe-area-inset-top)); right: 26px; text-align: right; pointer-events: none; user-select: none; }
+  .now .label { font-size: 10px; letter-spacing: 0.24em; color: var(--dim); text-transform: uppercase; }
+  .now .name { font-size: 15px; margin-top: 4px; font-weight: 500; letter-spacing: 0.04em; transition: opacity .45s; }
+  .now .bar { width: 140px; height: 2px; background: var(--line); margin: 8px 0 0 auto; border-radius: 2px; overflow: hidden; }
+  .now .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4f8bff, #b46bff, #ff5fc4, #3dffa8); }
+
+  .dock { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    display: flex; gap: 6px; align-items: center; padding: 6px; border-radius: 16px;
+    background: var(--glass); border: 1px solid var(--line);
+    backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+    max-width: calc(100vw - 20px); overflow-x: auto; scrollbar-width: none; }
+  .dock::-webkit-scrollbar { display: none; }
+  .group { display: flex; gap: 2px; padding: 0 4px; border-right: 1px solid var(--line); }
+  .group:last-child { border-right: 0; }
+  .dock button, .dock select {
+    appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: var(--text);
+    font: inherit; font-size: 12px; letter-spacing: 0.02em; padding: 8px 11px; border-radius: 10px; cursor: pointer;
+    white-space: nowrap; transition: background .2s, color .2s; }
+  .dock select { padding-right: 24px; background-image: linear-gradient(45deg, transparent 50%, var(--dim) 50%), linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+    background-position: calc(100% - 13px) 52%, calc(100% - 9px) 52%; background-size: 4px 4px; background-repeat: no-repeat; }
+  .dock select option { background: #15131f; color: var(--text); }
+  .dock button:hover, .dock select:hover { background: rgba(255,255,255,0.07); }
+  .dock button.on { background: rgba(185, 140, 255, 0.2); color: #fff; }
+  .dock .tag { font-size: 10px; letter-spacing: 0.18em; color: var(--dim); text-transform: uppercase; align-self: center; padding: 0 4px 0 6px; }
+
+  .hint { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    font-size: 11px; letter-spacing: 0.12em; color: var(--dim); text-transform: uppercase; pointer-events: none;
+    transition: opacity 1.2s; white-space: nowrap; }
+
+  .loader { position: fixed; inset: 0; display: grid; place-items: center; background: #1a1820; z-index: 10; transition: opacity .8s; }
+  .loader span { font-size: 11px; letter-spacing: 0.3em; color: var(--dim); }
+
+  @media (max-width: 640px) {
+    .title { top: calc(16px + env(safe-area-inset-top)); left: 16px; }
+    .now { top: calc(16px + env(safe-area-inset-top)); right: 16px; }
+    .now .bar { width: 100px; }
+    .dock .tag { display: none; }
+    .hint { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="loader" id="loader"><span>GROWING THE TREES…</span></div>
+
+<div class="title">
+  <h1>PROJECTION GROVE</h1>
+  <p>Light show series · No. 3</p>
+  <div class="series">
+    <a href="../">01 Fountain Court</a>
+    <a href="../light-tunnel/">02 Light Tunnel</a>
+    <span>03 Projection Grove</span>
+  </div>
+</div>
+
+<div class="now">
+  <div class="label">Now projecting</div>
+  <div class="name" id="seqName">Liquid Light</div>
+  <div class="bar"><i id="seqBar"></i></div>
+</div>
+
+<div class="hint" id="hint">Drag to orbit · Scroll to zoom · ← / → to switch looks · Space to hold</div>
+
+<div class="dock">
+  <div class="group">
+    <span class="tag">Look</span>
+    <select id="seqSelect" aria-label="Look"></select>
+    <button id="loopBtn" title="Hold the current look instead of moving on">Loop</button>
+  </div>
+  <div class="group">
+    <span class="tag">Camera</span>
+    <button id="orbitBtn" class="on" title="Slow automatic orbit">Orbit</button>
+  </div>
+  <div class="group">
+    <button id="mistBtn" class="on" title="Fog / haze">Mist</button>
+    <button id="beamBtn" class="on" title="Visible projector beams">Beams</button>
+  </div>
+</div>
+
+<div class="fade" id="fade"></div>
+<script>
+  // soft fade between the shows in the series
+  document.querySelectorAll('.series a').forEach(a => a.addEventListener('click', e => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault(); document.getElementById('fade').classList.add('on');
+    setTimeout(() => { location.href = a.href; }, 420);
+  }));
+  addEventListener('pageshow', () => document.getElementById('fade').classList.remove('on'));
+  // friendly message when WebGL isn't available
+  (() => { const c = document.createElement('canvas');
+    if (!(c.getContext('webgl2') || c.getContext('webgl'))) {
+      const d = document.createElement('div'); d.className = 'nogl';
+      d.innerHTML = 'This light show needs WebGL.<br>Try a current version of Chrome, Safari, Edge or Firefox.';
+      document.body.appendChild(d); } })();
+</script>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const LOOKS = ['Liquid Light','Fountain Ripples','Sap Rising','Living Lichen','Kaleidoscope','Op-Art Sweep'];
+const HOLD = 14, FADE = 3.2;
+
+/* ---------- shared GLSL ---------- */
+const GLSL_COMMON = /* glsl */`
+uniform float uTime; uniform int uA; uniform int uB; uniform float uMix;
+float hash(vec3 p){ p=fract(p*0.3183099+.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float vnoise(vec3 x){ vec3 i=floor(x); vec3 f=fract(x); f=f*f*(3.-2.*f);
+  return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z); }
+float fbm(vec3 p){ float a=.5,s=0.; for(int i=0;i<5;i++){ s+=a*vnoise(p); p=p*2.03+vec3(1.7,9.2,3.1); a*=.5; } return s; }
+vec3 pal(float t){
+  t=fract(t)*4.; float f=smoothstep(0.,1.,fract(t));
+  vec3 c0=vec3(.10,.32,1.), c1=vec3(.58,.18,1.), c2=vec3(1.,.18,.66), c3=vec3(.12,1.,.58);
+  if(t<1.) return mix(c0,c1,f); if(t<2.) return mix(c1,c2,f); if(t<3.) return mix(c2,c3,f); return mix(c3,c0,f);
+}
+float wLook(int m){ return (uA==m?1.-uMix:0.)+(uB==m?uMix:0.); }
+`;
+
+/* ---------- renderer / scene ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+let pixelRatio = Math.min(devicePixelRatio, 1.5);
+renderer.setPixelRatio(pixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x030208);
+scene.fog = new THREE.FogExp2(0x05040c, 0.022);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(0, 3.2, 22);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 7.5, -5);
+controls.enableDamping = true; controls.dampingFactor = 0.06;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.28;
+controls.minDistance = 7; controls.maxDistance = 48; controls.maxPolarAngle = Math.PI*0.53;
+controls.enablePan = false;
+
+scene.add(new THREE.HemisphereLight(0x1c2a55, 0x040308, 0.22));
+
+const U = { uTime:{value:0}, uA:{value:0}, uB:{value:0}, uMix:{value:0} };
+
+/* ---------- projector content (render target) ---------- */
+const rt = new THREE.WebGLRenderTarget(768, 768, { generateMipmaps:false });
+const rtScene = new THREE.Scene();
+const rtCam = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+rtScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), new THREE.ShaderMaterial({
+  uniforms: U,
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
+  fragmentShader: GLSL_COMMON + /* glsl */`
+  varying vec2 vUv;
+  vec3 look(int m, vec2 uv, float t){
+    vec2 p=uv-.5;
+    if(m==0){ // liquid light — oil & water
+      vec3 P=vec3(p*2.6, t*.04);
+      vec2 q=vec2(fbm(P+vec3(0.,0.,t*.06)), fbm(P+vec3(5.2,1.3,-t*.05)));
+      float r=fbm(vec3(p*2.6+3.2*q, t*.08));
+      float cells=smoothstep(.36,.6,r);
+      float rim=smoothstep(.035,.0,abs(r-.47));
+      return pal(r*1.7+t*.025)*(cells*1.05+.03) + pal(r*1.7+t*.025+.5)*rim*1.3;
+    }
+    if(m==1){ // ripples out from the fountain
+      float d=length(p);
+      float w=fract(d*7.-t*.5);
+      float ring=smoothstep(0.,.05,w)*smoothstep(.24,.05,w);
+      return pal(d*1.4-t*.1)*ring*1.7*smoothstep(.72,.08,d) + pal(t*.05)*.03;
+    }
+    if(m==2){ // sap — rising streaks (veins glow on the trees themselves)
+      float n=fbm(vec3(p.x*16., p.y*1.6-t*.55, t*.08));
+      return pal(uv.y*.5-t*.08)*pow(smoothstep(.48,.82,n),2.)*.75;
+    }
+    if(m==3){ // living lichen — spreading turing-like spots
+      vec3 P=vec3(p*5.2, t*.015);
+      float n=fbm(P);
+      float v=sin(n*40.+fbm(P*2.1)*7.);
+      float spots=smoothstep(.5,.88,v);
+      float front=mod(t*.055,1.35);
+      float grow=smoothstep(0.,.07, front-fbm(vec3(p*1.9,7.)));
+      float edge=smoothstep(.07,0.,abs(front-fbm(vec3(p*1.9,7.))-.02));
+      vec3 c=mix(vec3(.1,1.,.5), vec3(.25,.55,1.), fbm(P*.6+3.));
+      return c*spots*grow*1.5 + vec3(.9,.4,1.)*edge*spots*1.6;
+    }
+    if(m==4){ // kaleidoscope
+      float r=length(p); float a=atan(p.y,p.x)+t*.11;
+      float seg=6.2831853/8.;
+      a=mod(a,seg); a=abs(a-seg*.5);
+      vec2 q=vec2(cos(a),sin(a))*r;
+      float n=fbm(vec3(q*6.5-vec2(t*.16,0.), t*.06));
+      float petals=smoothstep(.42,.66,n) + .7*smoothstep(.04,0.,abs(fract(r*9.-t*.35)-.5)-.015)*smoothstep(.5,.1,r);
+      return pal(n*1.2+r*.8-t*.05)*petals*1.6;
+    }
+    // op-art sweep — interfering stripe fields
+    float ang=t*.05;
+    vec2 d1=vec2(cos(ang),sin(ang)), d2=vec2(cos(-ang*1.3+.35),sin(-ang*1.3+.35));
+    float s1=step(.5,fract(dot(p,d1)*30.+sin(p.y*9.+t*.8)*.7-t*.55));
+    float s2=step(.5,fract(dot(p,d2)*33.+t*.35));
+    return pal(floor(t*.2)*.25+length(p)*.5)*abs(s1-s2)*1.15;
+  }
+  void main(){
+    vec3 c=mix(look(uA,vUv,uTime), look(uB,vUv,uTime), uMix);
+    c*=smoothstep(.72,.32,length(vUv-.5));
+    gl_FragColor=vec4(c,1.);
+  }`
+})));
+
+/* ---------- materials with world-space glow (ripples + sap) ---------- */
+function glowMaterial(params, opts){
+  const m = new THREE.MeshStandardMaterial(params);
+  m.onBeforeCompile = (s) => {
+    Object.assign(s.uniforms, U);
+    s.vertexShader = 'varying vec3 vWPos;\n' + s.vertexShader.replace('#include <project_vertex>',
+      `#include <project_vertex>
+       vec4 wp=vec4(transformed,1.);
+       #ifdef USE_INSTANCING
+         wp=instanceMatrix*wp;
+       #endif
+       vWPos=(modelMatrix*wp).xyz;`);
+    s.fragmentShader = (opts.sap?'#define SAP\n':'') + (opts.leafSap?'#define LEAF_SAP\n':'') +
+      `#define RIPPLE_GAIN ${opts.gain.toFixed(2)}\n#define RIPPLE_FALL ${opts.fall.toFixed(3)}\n` +
+      'varying vec3 vWPos;\n' + GLSL_COMMON + s.fragmentShader.replace(
+      '#include <emissivemap_fragment>', /* glsl */`
+      #include <emissivemap_fragment>
+      vec3 glow=vec3(0.);
+      float wr=wLook(1);
+      if(wr>.001){
+        float d=length(vec3(vWPos.x, vWPos.y*.55, vWPos.z));
+        float w=fract(d*.17-uTime*.4);
+        float ring=smoothstep(0.,.03,w)*smoothstep(.15,.03,w);
+        glow+=pal(d*.05-uTime*.1)*ring*wr*RIPPLE_GAIN*exp(-d*RIPPLE_FALL);
+      }
+      #ifdef SAP
+      float ws=wLook(2);
+      if(ws>.001){
+        float n=vnoise(vec3(vWPos.x*2.2, vWPos.y*.3, vWPos.z*2.2));
+        float n2=vnoise(vec3(vWPos.x*4.8, vWPos.y*.6, vWPos.z*4.8)+11.);
+        float vein=smoothstep(.06,0.,abs(n-.5)) + .6*smoothstep(.045,0.,abs(n2-.5));
+        float pulse=pow(fract(vWPos.y*.09-uTime*.3+n*.4),5.);
+        glow+=pal(vWPos.y*.04-uTime*.07)*vein*(pulse*2.8+.06)*ws*1.5;
+      }
+      #endif
+      #ifdef LEAF_SAP
+      float wl=wLook(2);
+      if(wl>.001){
+        float pulse=pow(fract(vWPos.y*.09-uTime*.3+vnoise(vWPos*.7)*.5),9.);
+        float sparkle=step(.55,vnoise(vWPos*3.1));
+        glow+=pal(vWPos.y*.04-uTime*.07)*pulse*sparkle*wl*1.6;
+      }
+      #endif
+      totalEmissiveRadiance+=glow;`);
+  };
+  return m;
+}
+
+/* ---------- procedural textures ---------- */
+function canvasTex(w, h, draw, srgb=true){
+  const c = document.createElement('canvas'); c.width=w; c.height=h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  if(srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+const rng = rngFrom(20261114);
+// bark: vertical fissures
+const barkTex = canvasTex(256, 512, (g,w,h) => {
+  g.fillStyle='#a49e95'; g.fillRect(0,0,w,h);
+  for(let i=0;i<1400;i++){
+    let x=rng()*w, y=rng()*h; const len=30+rng()*220, a=.08+rng()*.5;
+    g.strokeStyle=`rgba(${30+rng()*20|0},${26+rng()*16|0},${22+rng()*14|0},${a})`;
+    g.lineWidth=.6+rng()*3.2; g.beginPath(); g.moveTo(x,y);
+    for(let k=0;k<len;k+=8){ x+=(rng()-.5)*3; y+=8; g.lineTo(x,y); }
+    g.stroke();
+  }
+  for(let i=0;i<500;i++){ g.fillStyle=`rgba(255,250,240,${rng()*.08})`; g.fillRect(rng()*w,rng()*h,1+rng()*4,4+rng()*18); }
+});
+barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
+// leaf sprig: a stem carrying alternating pointed leaves
+const leafTex = canvasTex(256, 256, (g) => {
+  g.translate(128, 252);
+  g.strokeStyle='#b9c2b4'; g.lineWidth=3; g.beginPath(); g.moveTo(0,0); g.quadraticCurveTo(14,-120,4,-200); g.stroke();
+  const leaf = (x,y,ang,L,shade) => {
+    const W=L*.36; g.save(); g.translate(x,y); g.rotate(ang);
+    g.fillStyle=`hsl(${95+shade*20},${10+shade*8}%,${66+shade*16}%)`;
+    g.beginPath(); g.moveTo(0,0); g.bezierCurveTo(W,-L*.22,W*.8,-L*.78,0,-L); g.bezierCurveTo(-W*.8,-L*.78,-W,-L*.22,0,0); g.fill();
+    g.strokeStyle='rgba(60,70,55,.35)'; g.lineWidth=1.2; g.beginPath(); g.moveTo(0,0); g.lineTo(0,-L*.92); g.stroke();
+    g.restore();
+  };
+  for(let i=0;i<8;i++){
+    const t=.14+i*.105, y=-t*205, x=Math.sin(t*2.4)*12, side=i%2?1:-1;
+    leaf(x, y, side*(1.05-t*.55), 74*(1-t*.35), rng());
+  }
+  leaf(4,-198,.05,62,rng());
+});
+
+const barkMat = glowMaterial({ color:0xb8b2aa, map:barkTex, bumpMap:barkTex, bumpScale:3, roughness:.9 }, {sap:true, gain:1.3, fall:.03});
+const leafMat = glowMaterial({ color:0xffffff, map:leafTex, alphaTest:.45, side:THREE.DoubleSide, roughness:.7 }, {sap:false, leafSap:true, gain:1.15, fall:.03});
+const groundMat = glowMaterial({ color:0x2e2d34, roughness:.95 }, {sap:false, gain:.5, fall:.07});
+const leafDepth = new THREE.MeshDepthMaterial({ depthPacking:THREE.RGBADepthPacking, map:leafTex, alphaTest:.45 });
+
+/* ---------- procedural trees: curved tapering limbs + leaf-card foliage ---------- */
+function rngFrom(seed){ return () => { seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+const V = (x=0,y=0,z=0) => new THREE.Vector3(x,y,z);
+const randUnit = (R) => { const z=R()*2-1, a=R()*Math.PI*2, r=Math.sqrt(1-z*z); return V(Math.cos(a)*r, z, Math.sin(a)*r); };
+const lerp = (a,b,t) => a+(b-a)*t;
+
+const LEVELS = [
+  { len:[5.6,6.6], segs:16, radial:18, kids:[7,9], range:[.32,.97], ang:[.8,1.3], curl:.07, trop:.035 },
+  { len:[5.0,6.8], segs:12, radial:11, kids:[6,8], range:[.15,1.0], ang:[.5,.95],  curl:.12, trop:.025 },
+  { len:[1.7,2.7], segs:6,  radial:6,  kids:[4,6], range:[.2,1.0],  ang:[.6,1.05], curl:.16, trop:.0 },
+  { len:[.9,1.5],  segs:3,  radial:4,  kids:[0,0], range:[0,0],     ang:[0,0],     curl:.22, trop:-.09 },
+];
+const leafMatrices = [], leafColors = [];
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = V();
+function pushLeaf(pos, size, R, tint, flat=false){
+  if(flat) _e.set(-Math.PI/2+(R()-.5)*.3, 0, R()*Math.PI*2);
+  else _e.set(R()*Math.PI*2, R()*Math.PI*2, R()*Math.PI*2);
+  _q.setFromEuler(_e); _s.set(size,size,size);
+  leafMatrices.push(new THREE.Matrix4().compose(pos, _q, _s));
+  leafColors.push(new THREE.Color().setHSL(.27+R()*.06, .12+R()*.12, tint*(.55+R()*.25)));
+}
+
+function buildTree(seed, at, scale){
+  const R = rngFrom(seed);
+  const P=[], N=[], UV=[], I=[]; let base=0;
+
+  function tube(pts, radii, radial){
+    const n=pts.length, T=[], Nm=[], Bn=[];
+    for(let i=0;i<n;i++) T[i]=(i<n-1? pts[i+1].clone().sub(pts[i]) : pts[i].clone().sub(pts[i-1])).normalize();
+    let ref = Math.abs(T[0].y)>.9 ? V(1,0,0) : V(0,1,0);
+    Nm[0]=V().crossVectors(T[0],ref).normalize();
+    for(let i=1;i<n;i++){
+      const ax=V().crossVectors(T[i-1],T[i]); const l=ax.length();
+      Nm[i]=Nm[i-1].clone();
+      if(l>1e-6) Nm[i].applyAxisAngle(ax.divideScalar(l), Math.acos(THREE.MathUtils.clamp(T[i-1].dot(T[i]),-1,1)));
+    }
+    let vlen=0; const uRep=Math.max(1,Math.round(radii[0]*6));
+    for(let i=0;i<n;i++){
+      Bn[i]=V().crossVectors(T[i],Nm[i]);
+      if(i>0) vlen+=pts[i].distanceTo(pts[i-1]);
+      for(let j=0;j<=radial;j++){
+        const a=j/radial*Math.PI*2, c=Math.cos(a), s=Math.sin(a);
+        const d=Nm[i].clone().multiplyScalar(c).addScaledVector(Bn[i],s);
+        const r=radii[i]*(1+.06*Math.sin(a*5+i*.9+seed)+.04*Math.sin(a*11-i*1.7));
+        const p=pts[i].clone().addScaledVector(d,r);
+        P.push(p.x,p.y,p.z); N.push(d.x,d.y,d.z); UV.push(j/radial*uRep, vlen*.45);
+      }
+    }
+    for(let i=0;i<n-1;i++) for(let j=0;j<radial;j++){
+      const a=base+i*(radial+1)+j, b=a+radial+1;
+      I.push(a,a+1,b, b,a+1,b+1);
+    }
+    base+=n*(radial+1);
+  }
+
+  function branch(level, start, dir, len, rad){
+    const L=LEVELS[level], pts=[start.clone()], radii=[];
+    const d=dir.clone(), step=len/L.segs; let p=start.clone();
+    for(let s=1;s<=L.segs;s++){
+      d.addScaledVector(randUnit(R), L.curl); d.y+=L.trop; d.normalize();
+      p=p.clone().addScaledVector(d,step); pts.push(p);
+    }
+    const radAt = (t) => rad*(1-.74*t)*(level===0 ? 1+.85*Math.pow(Math.max(0,1-t/.14),2) : 1);
+    for(let s=0;s<=L.segs;s++) radii.push(radAt(s/L.segs));
+    tube(pts, radii, L.radial);
+
+    const pointAt = (t) => { const f=t*L.segs, i=Math.min(Math.floor(f),L.segs-1), k=f-i;
+      return { p: pts[i].clone().lerp(pts[i+1],k), d: pts[i+1].clone().sub(pts[i]).normalize() }; };
+
+    if(level<3){
+      const nk = L.kids[0] + Math.floor(R()*(L.kids[1]-L.kids[0]+1));
+      let phi = R()*Math.PI*2;
+      for(let k=0;k<nk;k++){
+        const t = lerp(L.range[0], L.range[1], Math.min(1,(k+.2+R()*.6)/nk));
+        const {p:sp, d:pd} = pointAt(t);
+        phi += 2.39996;
+        let perp = V().crossVectors(pd, Math.abs(pd.y)>.9?V(1,0,0):V(0,1,0)).normalize().applyAxisAngle(pd, phi);
+        const ang = lerp(L.ang[0], L.ang[1], R());
+        const cd = pd.clone().multiplyScalar(Math.cos(ang)).addScaledVector(perp, Math.sin(ang)).normalize();
+        const NL = LEVELS[level+1];
+        let cl = lerp(NL.len[0], NL.len[1], R())*scale;
+        cl *= level===0 ? (1.15-.45*t) : (1.05-.4*t);
+        branch(level+1, sp, cd, cl, radAt(t)*lerp(.55,.72,R()));
+      }
+    }
+    // foliage
+    if(level>=2){
+      const count = level===3 ? 26 : 8;
+      for(let k=0;k<count;k++){
+        const t = level===3 ? R() : .45+R()*.55;
+        const {p:lp} = pointAt(t);
+        lp.addScaledVector(randUnit(R), .15+R()*.65);
+        pushLeaf(lp, .6+R()*.42, R, 1);
+      }
+    }
+  }
+
+  const tilt = V((R()-.5)*.14, 1, (R()-.5)*.14).normalize();
+  branch(0, at.clone().setY(-.3), tilt, lerp(LEVELS[0].len[0],LEVELS[0].len[1],R())*scale, .62*scale);
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P,3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(N,3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(UV,2));
+  g.setIndex(I);
+  const mesh = new THREE.Mesh(g, barkMat);
+  mesh.castShadow = mesh.receiveShadow = true;
+  scene.add(mesh);
+}
+
+const TREES = [ [V(0,0,-9), 1.4, 11], [V(-12.5,0,-1), 1.12, 23], [V(12,0,-3), 1.05, 37] ];
+TREES.forEach(([p,s,seed]) => buildTree(seed, p, s));
+
+// undergrowth shrubs
+const SHRUBS = [[-4.5,4.5],[5,5.5],[-17,-6],[18,4],[-7,-17],[8,-17],[-18,8],[20,-8],[3,-19],[-12,9],[12,9],[-8,-6],[7,-8]];
+SHRUBS.forEach(([x,z]) => {
+  const rx=1+rng()*1.1, ry=.7+rng()*.6;
+  for(let i=0;i<300;i++){
+    const u=randUnit(rng).multiplyScalar(Math.cbrt(rng()));
+    const p=V(x+u.x*rx, Math.max(.1, ry*.8+u.y*ry), z+u.z*rx);
+    pushLeaf(p, .42+rng()*.3, rng, .85);
+  }
+});
+// leaf litter under the canopies
+for(let i=0;i<3200;i++){
+  const [c,s] = TREES[i%3]; const a=rng()*Math.PI*2, r=Math.sqrt(rng())*7.5*s;
+  pushLeaf(V(c.x+Math.cos(a)*r, .04+rng()*.04, c.z+Math.sin(a)*r), .35+rng()*.3, rng, .45, true);
+}
+
+{
+  const leaves = new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).translate(0,.5,0), leafMat, leafMatrices.length);
+  leafMatrices.forEach((m,i)=>{ leaves.setMatrixAt(i,m); leaves.setColorAt(i,leafColors[i]); });
+  leaves.castShadow = leaves.receiveShadow = true;
+  leaves.customDepthMaterial = leafDepth;
+  scene.add(leaves);
+}
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(200,200), groundMat);
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+/* ---------- the light pool (fountain nod) ---------- */
+const pool = new THREE.Mesh(new THREE.CircleGeometry(2.3, 72), new THREE.ShaderMaterial({
+  uniforms:U, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+  vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: GLSL_COMMON + `varying vec2 vUv; void main(){
+    float d=length(vUv-.5)*2.;
+    float rings=.5+.5*sin(d*22.-uTime*3.);
+    vec3 c=pal(d*.4-uTime*.08)*(.25+.75*pow(rings,6.))*smoothstep(1.,.85,d);
+    gl_FragColor=vec4(c*1.3,1.); }`
+}));
+pool.rotation.x = -Math.PI/2; pool.position.y = .03; scene.add(pool);
+const rim = new THREE.Mesh(new THREE.TorusGeometry(2.32,.07,10,96), new THREE.MeshStandardMaterial({color:0x222028, roughness:.4, metalness:.6}));
+rim.rotation.x = -Math.PI/2; rim.position.y=.04; scene.add(rim);
+
+/* ---------- projectors + visible beams ---------- */
+const beams = [];
+function projector(pos, target, angle, intensity, shadowRes=2048){
+  const L = new THREE.SpotLight(0xffffff, intensity, 0, angle, .38, 0);
+  L.position.copy(pos); L.target.position.copy(target);
+  L.map = rt.texture;
+  L.castShadow = true; L.shadow.mapSize.set(shadowRes,shadowRes);
+  L.shadow.camera.near = 2; L.shadow.camera.far = 70; L.shadow.bias = -0.0004; L.shadow.normalBias = .02;
+  scene.add(L, L.target);
+
+  const len = pos.distanceTo(target)*1.55, rad = Math.tan(angle)*len;
+  const cone = new THREE.ConeGeometry(rad, len, 64, 1, true);
+  cone.translate(0, -len/2, 0);
+  const beam = new THREE.Mesh(cone, new THREE.ShaderMaterial({
+    uniforms:{ uColor:{value:new THREE.Color()}, uLen:{value:len}, uOp:{value:.05} },
+    transparent:true, depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
+    vertexShader:`uniform float uLen; varying float vH; varying vec3 vN; varying vec3 vV;
+      void main(){ vH=-position.y/uLen; vec4 mv=modelViewMatrix*vec4(position,1.);
+        vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`uniform vec3 uColor; uniform float uOp; varying float vH; varying vec3 vN; varying vec3 vV;
+      void main(){ float edge=pow(abs(dot(vN,vV)),1.6);
+        float a=uOp*pow(max(1.-vH,0.),1.4)*smoothstep(0.,.04,vH)*edge;
+        gl_FragColor=vec4(uColor*a,1.); }`
+  }));
+  beam.position.copy(pos);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0), target.clone().sub(pos).normalize());
+  scene.add(beam); beams.push(beam);
+  const lens = new THREE.Mesh(new THREE.SphereGeometry(.18,16,12), new THREE.MeshBasicMaterial({color:0xffffff}));
+  lens.position.copy(pos); scene.add(lens);
+  return L;
+}
+projector(new THREE.Vector3(0, 17, 30), new THREE.Vector3(0, 7, -5), .6, 10);
+projector(new THREE.Vector3(-26, 14, -26), new THREE.Vector3(0, 7, -4), .55, 6.5, 1024);
+projector(new THREE.Vector3(28, 9, 10), new THREE.Vector3(1, 6, -4), .52, 5, 1024);
+// nothing that casts shadows moves, so render shadow maps once instead of every frame
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
+
+/* ---------- drifting motes ---------- */
+{
+  const N = 420, p = new Float32Array(N*3), s = new Float32Array(N);
+  for(let i=0;i<N;i++){ const a=rng()*Math.PI*2, r=Math.sqrt(rng())*22;
+    p[i*3]=Math.cos(a)*r; p[i*3+1]=.4+rng()*12; p[i*3+2]=Math.sin(a)*r; s[i]=rng(); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(p,3));
+  g.setAttribute('seed', new THREE.BufferAttribute(s,1));
+  scene.add(new THREE.Points(g, new THREE.ShaderMaterial({
+    uniforms:U, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    vertexShader: GLSL_COMMON + `attribute float seed; varying vec3 vC; varying float vF;
+      void main(){ vec3 q=position+vec3(sin(uTime*.3+seed*6.28)*.7, sin(uTime*.45+seed*13.)*.45, cos(uTime*.27+seed*9.)*.7);
+        vec4 mv=modelViewMatrix*vec4(q,1.);
+        vF=.35+.65*pow(.5+.5*sin(uTime*(1.2+seed*2.)+seed*40.),3.);
+        vC=pal(seed+uTime*.03);
+        gl_PointSize=(28.+seed*30.)/-mv.z; gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`varying vec3 vC; varying float vF;
+      void main(){ float d=length(gl_PointCoord-.5); float a=smoothstep(.5,0.,d); gl_FragColor=vec4(vC*a*a*vF*1.4,1.); }`
+  })));
+}
+
+/* ---------- post ---------- */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+// guard: any invalid (NaN/inf) pixel would be smeared into black boxes by the bloom
+composer.addPass(new ShaderPass({
+  uniforms:{ tDiffuse:{value:null} },
+  vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader:`uniform sampler2D tDiffuse; varying vec2 vUv;
+    void main(){ vec4 c=texture2D(tDiffuse,vUv);
+      if(any(isnan(c)) || any(isinf(c))) c=vec4(0.,0.,0.,1.);
+      gl_FragColor=vec4(min(c.rgb,vec3(40.)),c.a); }`
+}));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .85, .55, .12);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* ---------- look sequencing + UI ---------- */
+const seqSelect = document.getElementById('seqSelect');
+const seqName = document.getElementById('seqName'), seqBar = document.getElementById('seqBar');
+const loopBtn = document.getElementById('loopBtn');
+LOOKS.forEach((n,i) => seqSelect.add(new Option(n, i)));
+seqSelect.onchange = () => goTo(+seqSelect.value);
+
+let cur = 0, target = null, fadeT = 0, holdT = 0, loop = false;
+function setLoop(v){ loop = v; loopBtn.classList.toggle('on', v); }
+loopBtn.onclick = () => setLoop(!loop);
+function goTo(i){
+  i = ((i % LOOKS.length) + LOOKS.length) % LOOKS.length;
+  if(target!==null){ cur = target; }
+  if(i===cur){ target=null; U.uA.value=cur; U.uMix.value=0; updateDock(); return; }
+  target = i; fadeT = 0; holdT = 0;
+  U.uA.value = cur; U.uB.value = i; U.uMix.value = 0;
+  seqName.style.opacity = 0;
+  setTimeout(()=>{ seqName.textContent = LOOKS[i]; seqName.style.opacity = 1; }, 450);
+  updateDock();
+}
+function updateDock(){ const v = String(target ?? cur); if(seqSelect.value !== v) seqSelect.value = v; }
+updateDock();
+
+const orbitBtn = document.getElementById('orbitBtn');
+orbitBtn.onclick = () => { controls.autoRotate = !controls.autoRotate; orbitBtn.classList.toggle('on', controls.autoRotate); };
+const mistBtn = document.getElementById('mistBtn');
+mistBtn.onclick = () => { const on = !mistBtn.classList.contains('on'); mistBtn.classList.toggle('on', on); scene.fog.density = on ? 0.022 : 0.006; };
+const beamBtn = document.getElementById('beamBtn');
+beamBtn.onclick = () => { const on = !beamBtn.classList.contains('on'); beamBtn.classList.toggle('on', on); beams.forEach(b => b.visible = on); };
+
+addEventListener('keydown', e => {
+  if(e.target.tagName === 'SELECT') return;
+  if(e.key==='ArrowRight') goTo((target ?? cur)+1);
+  else if(e.key==='ArrowLeft') goTo((target ?? cur)-1);
+  else if(e.key===' '){ e.preventDefault(); setLoop(!loop); }
+});
+setTimeout(() => { document.getElementById('hint').style.opacity = 0; }, 7000);
+
+// JS mirror of the GLSL palette, to tint the light beams
+const PAL = [[.10,.32,1],[.58,.18,1],[1,.18,.66],[.12,1,.58]];
+function palJS(t, out){ t=(t%1+1)%1*4; const i=Math.floor(t)%4, f=t-Math.floor(t), s=f*f*(3-2*f);
+  const a=PAL[i], b=PAL[(i+1)%4]; return out.setRGB(a[0]+(b[0]-a[0])*s, a[1]+(b[1]-a[1])*s, a[2]+(b[2]-a[2])*s); }
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+});
+
+const clock = new THREE.Clock();
+let first = true, perfFrames = 0, perfTime = 0;
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), .1);
+  U.uTime.value += dt;
+  if(target!==null){
+    fadeT += dt; const k = Math.min(fadeT/FADE, 1);
+    U.uMix.value = k*k*(3-2*k);
+    if(k>=1){ cur = target; target = null; U.uA.value = cur; U.uMix.value = 0; holdT = 0; }
+  } else if(!loop){
+    holdT += dt; if(holdT >= HOLD) goTo(cur+1);
+  }
+  const prog = target!==null ? 0 : Math.min(holdT/HOLD,1);
+  seqBar.style.width = (target!==null ? 0 : prog*100) + '%';
+
+  beams.forEach((b,i) => palJS(U.uTime.value*.05 + i*.35, b.material.uniforms.uColor.value));
+  updateDock();
+  controls.update();
+  renderer.setRenderTarget(rt); renderer.render(rtScene, rtCam); renderer.setRenderTarget(null);
+  composer.render();
+  // adaptive resolution: step down if the frame rate stays low
+  perfFrames++; perfTime += dt;
+  if(perfTime > 2.5){
+    const fps = perfFrames/perfTime; perfFrames = 0; perfTime = 0;
+    if(fps < 42 && pixelRatio > .75){ pixelRatio = Math.max(.75, pixelRatio-.25); renderer.setPixelRatio(pixelRatio); composer.setPixelRatio(pixelRatio); }
+  }
+  if(first){ first=false; const l=document.getElementById('loader'); l.style.opacity=0; setTimeout(()=>l.remove(),900); }
+});
+</script>
+</body>
+</html>
