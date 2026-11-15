@@ -182,15 +182,15 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x030208);
-scene.fog = new THREE.FogExp2(0x05040c, 0.022);
+scene.fog = new THREE.FogExp2(0x05040c, 0.016);
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
-camera.position.set(0, 3.2, 22);
+camera.position.set(0, 11.5, 34);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 7.5, -5);
+controls.target.set(0, 6.5, -4);
 controls.enableDamping = true; controls.dampingFactor = 0.06;
 controls.autoRotate = true; controls.autoRotateSpeed = 0.28;
-controls.minDistance = 7; controls.maxDistance = 48; controls.maxPolarAngle = Math.PI*0.53;
+controls.minDistance = 7; controls.maxDistance = 56; controls.maxPolarAngle = Math.PI*0.53;
 controls.enablePan = false;
 
 scene.add(new THREE.HemisphereLight(0x1c2a55, 0x040308, 0.22));
@@ -609,7 +609,7 @@ updateDock();
 const orbitBtn = document.getElementById('orbitBtn');
 orbitBtn.onclick = () => { controls.autoRotate = !controls.autoRotate; orbitBtn.classList.toggle('on', controls.autoRotate); };
 const mistBtn = document.getElementById('mistBtn');
-mistBtn.onclick = () => { const on = !mistBtn.classList.contains('on'); mistBtn.classList.toggle('on', on); scene.fog.density = on ? 0.022 : 0.006; };
+mistBtn.onclick = () => { const on = !mistBtn.classList.contains('on'); mistBtn.classList.toggle('on', on); scene.fog.density = on ? 0.016 : 0.005; };
 const beamBtn = document.getElementById('beamBtn');
 beamBtn.onclick = () => { const on = !beamBtn.classList.contains('on'); beamBtn.classList.toggle('on', on); beams.forEach(b => b.visible = on); };
 
