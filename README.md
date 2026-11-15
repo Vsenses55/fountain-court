@@ -41,14 +41,14 @@ An endless tunnel of LED arches on the same backdrop, with the same bloom, mist 
 
 ## 03 · Projection Grove
 
-Three big, bushy procedural trees at night (curved tapering limbs, bark, and about 30,000 leaf sprigs), with low shrubs and leaf litter. Three projectors throw live, generative imagery onto the grove, with visible beams, fog, drifting motes and a glowing light pool at the center. Six looks crossfade in sequence: Liquid Light, Fountain Ripples, Sap Rising, Living Lichen, Kaleidoscope and Op-Art Sweep.
+Three big, bushy procedural trees at night (curved tapering limbs, bark, and about 30,000 leaf sprigs), with low shrubs and leaf litter. Three hidden projectors throw live, generative imagery onto the grove, with fog, drifting motes and a glowing light pool at the center. Six looks crossfade in sequence: Liquid Light, Fountain Ripples, Sap Rising, Living Lichen, Kaleidoscope and Op-Art Sweep.
 
 **Controls**
 
 - Drag to orbit, scroll or pinch to zoom
 - **Look**: jump to any of the 6 looks (or ← / →); **Loop** holds the current one (or Space)
 - **Orbit**: slow automatic camera orbit
-- **Mist** / **Beams**: fog and visible projector beams
+- **Mist**: fog / haze
 
 ---
 

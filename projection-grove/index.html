@@ -113,7 +113,6 @@
   </div>
   <div class="group">
     <button id="mistBtn" class="on" title="Fog / haze">Mist</button>
-    <button id="beamBtn" class="on" title="Visible projector beams">Beams</button>
   </div>
 </div>
 
@@ -534,9 +533,7 @@ function projector(pos, target, angle, intensity, shadowRes=2048){
   }));
   beam.position.copy(pos);
   beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0), target.clone().sub(pos).normalize());
-  scene.add(beam); beams.push(beam);
-  const lens = new THREE.Mesh(new THREE.SphereGeometry(.18,16,12), new THREE.MeshBasicMaterial({color:0xffffff}));
-  lens.position.copy(pos); scene.add(lens);
+  // beam cones and projector lenses are left out of the scene: the light lands on the trees without visible fixtures
   return L;
 }
 projector(new THREE.Vector3(0, 17, 30), new THREE.Vector3(0, 7, -5), .6, 10);
@@ -610,8 +607,6 @@ const orbitBtn = document.getElementById('orbitBtn');
 orbitBtn.onclick = () => { controls.autoRotate = !controls.autoRotate; orbitBtn.classList.toggle('on', controls.autoRotate); };
 const mistBtn = document.getElementById('mistBtn');
 mistBtn.onclick = () => { const on = !mistBtn.classList.contains('on'); mistBtn.classList.toggle('on', on); scene.fog.density = on ? 0.016 : 0.005; };
-const beamBtn = document.getElementById('beamBtn');
-beamBtn.onclick = () => { const on = !beamBtn.classList.contains('on'); beamBtn.classList.toggle('on', on); beams.forEach(b => b.visible = on); };
 
 addEventListener('keydown', e => {
   if(e.target.tagName === 'SELECT') return;
