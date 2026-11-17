@@ -49,6 +49,8 @@ Three big, bushy procedural trees at night (curved tapering limbs, bark, and abo
 - **Look**: jump to any of the 6 looks (or ← / →); **Loop** holds the current one (or Space)
 - **Orbit**: slow automatic camera orbit
 - **Mist**: fog / haze
+- **Music**: sync the show to a beat. **Mic** listens to music in the room, **Tab** captures a shared browser tab's audio (YouTube, SoundCloud…; desktop Chrome / Edge, tick "Share tab audio"), **File** plays an audio file (or drag one onto the page), **Tap** sets the tempo by tapping along (or press T). **✕** stops syncing.
+  While synced, each kick sends a ring of light out from the pool through the trees, the projections pulse, sap surges, louder passages run faster, and looks change every 8 bars. Mic and Tab need the page served over https (GitHub Pages) or `localhost`.
 
 ---
 

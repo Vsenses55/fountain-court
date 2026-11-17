@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<title>Fountain Court — Light Show Series</title>
-<meta name="description" content="An interactive splash-pad fountain light show: choreographed jets, colour-changing LEDs and mist, in Three.js." />
+<title>Projection Grove — Light Show Series</title>
+<meta name="description" content="Psychedelic projection mapping on a night grove of trees, with six generative looks, in Three.js." />
 <meta name="theme-color" content="#1a1820" />
 <meta property="og:type" content="website" />
-<meta property="og:title" content="Fountain Court — Light Show Series" />
-<meta property="og:description" content="An interactive splash-pad fountain light show: choreographed jets, colour-changing LEDs and mist, in Three.js." />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a1820'/%3E%3Ccircle cx='32' cy='32' r='14' fill='none' stroke='%236fa8ff' stroke-width='5' stroke-dasharray='2 5'/%3E%3C/svg%3E" />
+<meta property="og:title" content="Projection Grove — Light Show Series" />
+<meta property="og:description" content="Psychedelic projection mapping on a night grove of trees, with six generative looks, in Three.js." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a1820'/%3E%3Ccircle cx='32' cy='32' r='14' fill='none' stroke='%232dffa0' stroke-width='5' stroke-dasharray='2 5'/%3E%3C/svg%3E" />
 
 <style>
   :root {
@@ -22,17 +22,32 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: #1a1820; overflow: hidden; color: var(--text);
     font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  canvas { display: block; touch-action: none; }
+  canvas { display: block; touch-action: none; cursor: grab; }
+  canvas:active { cursor: grabbing; }
 
   .title { position: fixed; top: calc(22px + env(safe-area-inset-top)); left: 26px; user-select: none; }
-  .title h1, .title p { pointer-events: none; }
-  .title h1 { margin: 0; font-size: 13px; letter-spacing: 0.38em; font-weight: 600; }
-  .title p { margin: 6px 0 0; font-size: 11px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; }
+  .title h1 { margin: 0; font-size: 13px; letter-spacing: 0.38em; font-weight: 600; pointer-events: none; }
+  .title p { margin: 6px 0 0; font-size: 11px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; pointer-events: none; }
+  .series { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .series a, .series span { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; text-decoration: none;
+    color: var(--dim); padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .series a:hover { color: var(--text); border-color: rgba(255,255,255,0.3); }
+  .series span { color: #fff; border-color: rgba(185, 140, 255, 0.55); background: rgba(185, 140, 255, 0.18); }
+  .fade { position: fixed; inset: 0; background: #1a1820; opacity: 0; pointer-events: none; transition: opacity .45s; z-index: 20; }
+  .fade.on { opacity: 1; }
+  .nogl { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: #1a1820; z-index: 30;
+    font-size: 12px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; line-height: 1.8; }
 
   .now { position: fixed; top: calc(22px + env(safe-area-inset-top)); right: 26px; text-align: right; pointer-events: none; user-select: none; }
   .now .label { font-size: 10px; letter-spacing: 0.24em; color: var(--dim); text-transform: uppercase; }
-  .now .name { font-size: 15px; margin-top: 4px; font-weight: 500; letter-spacing: 0.04em; }
+  .now .name { font-size: 15px; margin-top: 4px; font-weight: 500; letter-spacing: 0.04em; transition: opacity .45s; }
   .now .bar { width: 140px; height: 2px; background: var(--line); margin: 8px 0 0 auto; border-radius: 2px; overflow: hidden; }
+  .now .music { font-size: 10px; letter-spacing: 0.2em; color: var(--dim); margin-top: 10px; text-transform: uppercase;
+    font-variant-numeric: tabular-nums; display: none; align-items: center; justify-content: flex-end; gap: 7px; }
+  .now .music.show { display: flex; }
+  .now .music i { width: 7px; height: 7px; border-radius: 50%; background: #ff5fc4; box-shadow: 0 0 10px #ff5fc4; opacity: .25; }
+  .dock input[type=file] { display: none; }
   .now .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4f8bff, #b46bff, #ff5fc4, #3dffa8); }
 
   .dock { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%);
@@ -61,18 +76,7 @@
   .loader { position: fixed; inset: 0; display: grid; place-items: center; background: #1a1820; z-index: 10; transition: opacity .8s; }
   .loader span { font-size: 11px; letter-spacing: 0.3em; color: var(--dim); }
 
-
-  .series { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-  .series a, .series span { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; text-decoration: none;
-    color: var(--dim); padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass);
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: color .2s, border-color .2s; }
-  .series a:hover { color: var(--text); border-color: rgba(255,255,255,0.3); }
-  .series span { color: #fff; border-color: rgba(185, 140, 255, 0.55); background: rgba(185, 140, 255, 0.18); }
-  .fade { position: fixed; inset: 0; background: #1a1820; opacity: 0; pointer-events: none; transition: opacity .45s; z-index: 20; }
-  .fade.on { opacity: 1; }
-  .nogl { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: #1a1820; z-index: 30;
-    font-size: 12px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; line-height: 1.8; }
-
+  @media (max-width: 900px) { .title { max-width: calc(100vw - 210px); } }
   @media (max-width: 640px) {
     .title { top: calc(16px + env(safe-area-inset-top)); left: 16px; }
     .now { top: calc(16px + env(safe-area-inset-top)); right: 16px; }
@@ -83,47 +87,50 @@
 </style>
 </head>
 <body>
-<div class="loader" id="loader"><span>FILLING THE FOUNTAIN…</span></div>
+<div class="loader" id="loader"><span>GROWING THE TREES…</span></div>
 
 <div class="title">
-  <h1>FOUNTAIN COURT</h1>
-  <p>Light show series · No. 1</p>
+  <h1>PROJECTION GROVE</h1>
+  <p>Light show series · No. 3</p>
   <div class="series">
-    <span>01 Fountain Court</span>
-    <a href="light-tunnel/">02 Light Tunnel</a>
-    <a href="projection-grove/">03 Projection Grove</a>
+    <a href="../">01 Fountain Court</a>
+    <a href="../light-tunnel/">02 Light Tunnel</a>
+    <span>03 Projection Grove</span>
   </div>
 </div>
 
 <div class="now">
-  <div class="label">Now playing</div>
-  <div class="name" id="seqName">—</div>
+  <div class="label">Now projecting</div>
+  <div class="name" id="seqName">Liquid Light</div>
   <div class="bar"><i id="seqBar"></i></div>
+  <div class="music" id="music"><i id="beatDot"></i><span id="musicText">Listening…</span></div>
 </div>
 
-<div class="hint" id="hint">Drag to look around 360° · Tap the plaza to trigger jets</div>
+<div class="hint" id="hint">Drag to orbit · Scroll to zoom · ← / → to switch looks · Space to hold · Music to sync</div>
 
 <div class="dock">
   <div class="group">
-    <span class="tag">Show</span>
-    <select id="seqSelect" aria-label="Sequence"></select>
-    <button id="loopBtn" title="Repeat the current show instead of moving on">Loop</button>
+    <span class="tag">Look</span>
+    <select id="seqSelect" aria-label="Look"></select>
+    <button id="loopBtn" title="Hold the current look instead of moving on">Loop</button>
   </div>
   <div class="group">
-    <span class="tag">Light</span>
-    <select id="palSelect" aria-label="Palette"></select>
+    <span class="tag">Camera</span>
+    <button id="orbitBtn" class="on" title="Slow automatic orbit">Orbit</button>
   </div>
   <div class="group">
-    <button id="mistBtn" class="on" title="Fog / mist effects">Mist</button>
-    <button id="soundBtn" title="Water sound">Sound</button>
+    <button id="mistBtn" class="on" title="Fog / haze">Mist</button>
   </div>
   <div class="group">
-    <button data-view="orbit" class="on">Orbit</button>
-    <button data-view="low">Low</button>
-    <button data-view="top">Top</button>
+    <span class="tag">Music</span>
+    <button id="micBtn" title="Listen to music in the room through the microphone">Mic</button>
+    <button id="tabBtn" title="Share a browser tab's audio (YouTube, SoundCloud…), desktop Chrome / Edge">Tab</button>
+    <button id="fileBtn" title="Play an audio file from your computer">File</button>
+    <button id="tapBtn" title="Tap along with the beat (or press T)">Tap</button>
+    <button id="offBtn" title="Stop music sync" hidden>✕</button>
+    <input type="file" id="fileIn" accept="audio/*" />
   </div>
 </div>
-
 
 <div class="fade" id="fade"></div>
 <script>
@@ -143,67 +150,64 @@
 </script>
 
 <script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
 </script>
-
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Reflector } from 'three/addons/objects/Reflector.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// ---------------------------------------------------------------------------
-// Quality tier
-// ---------------------------------------------------------------------------
-const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || Math.min(innerWidth, innerHeight) < 600;
-const Q = isMobile
-  ? { dpr: Math.min(devicePixelRatio, 1.5), maxParticles: 26000, emit: 0.55, refl: 0.4, mist: 160 }
-  : { dpr: Math.min(devicePixelRatio, 2), maxParticles: 70000, emit: 1.0, refl: 0.6, mist: 280 };
+const LOOKS = ['Liquid Light','Fountain Ripples','Sap Rising','Living Lichen','Kaleidoscope','Op-Art Sweep'];
+const HOLD = 14, FADE = 3.2;
 
-const GRAVITY = 9.8;
-const MAX_H = 4.2;          // tallest jet height (m)
-const HORIZON = new THREE.Color(0x1d1b23);
+/* ---------- shared GLSL ---------- */
+const GLSL_COMMON = /* glsl */`
+uniform float uTime; uniform int uA; uniform int uB; uniform float uMix;
+uniform float uKick; uniform float uAudio; uniform float uBeats[6];
+// rings that leave the center on each detected beat (radius grows with age)
+float beatRings(float d, float speed, float width){
+  float r=0.;
+  for(int i=0;i<6;i++){
+    float age=uTime-uBeats[i];
+    if(age<0. || age>4.) continue;
+    r+=smoothstep(width,0.,abs(d-age*speed))*exp(-age*1.1);
+  }
+  return r*uAudio;
+}
+float hash(vec3 p){ p=fract(p*0.3183099+.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float vnoise(vec3 x){ vec3 i=floor(x); vec3 f=fract(x); f=f*f*(3.-2.*f);
+  return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z); }
+float fbm(vec3 p){ float a=.5,s=0.; for(int i=0;i<5;i++){ s+=a*vnoise(p); p=p*2.03+vec3(1.7,9.2,3.1); a*=.5; } return s; }
+vec3 pal(float t){
+  t=fract(t)*4.; float f=smoothstep(0.,1.,fract(t));
+  vec3 c0=vec3(.10,.32,1.), c1=vec3(.58,.18,1.), c2=vec3(1.,.18,.66), c3=vec3(.12,1.,.58);
+  if(t<1.) return mix(c0,c1,f); if(t<2.) return mix(c1,c2,f); if(t<3.) return mix(c2,c3,f); return mix(c3,c0,f);
+}
+float wLook(int m){ return (uA==m?1.-uMix:0.)+(uB==m?uMix:0.); }
+`;
 
-// ---------------------------------------------------------------------------
-// Renderer / scene / camera
-// ---------------------------------------------------------------------------
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Q.dpr);
+/* ---------- renderer / scene ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+let pixelRatio = Math.min(devicePixelRatio, 1.5);
+renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(HORIZON, 0.012);
-
-const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 800);
-camera.position.set(10.5, 3.4, 10.5);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 1.4, 0);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.minDistance = 2.5;
-controls.maxDistance = 30;
-controls.maxPolarAngle = Math.PI * 0.495;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.35;
-controls.enablePan = false;
-
-// ---------------------------------------------------------------------------
-// Backdrop: same charcoal gradient as the PXL viewer's night mode
-// ---------------------------------------------------------------------------
+// backdrop: same charcoal gradient and horizon fog as Fountain Court
 {
   const c = document.createElement('canvas'); c.width = 2; c.height = 256;
   const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 0, 256);
@@ -212,656 +216,655 @@ controls.enablePan = false;
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   scene.background = tex;
 }
+scene.fog = new THREE.FogExp2(0x1d1b23, 0.016);
 
-// ---------------------------------------------------------------------------
-// Fountain layout: 7x7 floor grid of vertical jets + an outer ring of arcing jets
-// ---------------------------------------------------------------------------
-const jets = [];
-const GRID = 7, SPACING = 1.3;
-for (let ix = 0; ix < GRID; ix++) for (let iz = 0; iz < GRID; iz++) {
-  const x = (ix - (GRID - 1) / 2) * SPACING, z = (iz - (GRID - 1) / 2) * SPACING;
-  jets.push({ kind: 'grid', x, z, ix, iz, r: Math.hypot(x, z), a: Math.atan2(z, x),
-              strength: 0, target: 0, burst: 0, color: new THREE.Color(), emitAcc: 0 });
-}
-const RING = 16, RING_R = 6.4;
-for (let i = 0; i < RING; i++) {
-  const a = (i / RING) * Math.PI * 2;
-  jets.push({ kind: 'ring', x: Math.cos(a) * RING_R, z: Math.sin(a) * RING_R, i, ix: i, iz: 0, r: RING_R, a,
-              strength: 0, target: 0, burst: 0, color: new THREE.Color(), emitAcc: 0 });
-}
-const NJ = jets.length;
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(0, 11.5, 34);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 6.5, -4);
+controls.enableDamping = true; controls.dampingFactor = 0.06;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.28;
+controls.minDistance = 7; controls.maxDistance = 56; controls.maxPolarAngle = Math.PI*0.53;
+controls.enablePan = false;
 
-// ---------------------------------------------------------------------------
-// Wet reflective plaza floor (Reflector with a custom wet-stone + LED light-pool shader)
-// ---------------------------------------------------------------------------
-// Realistic ripples (ported from the PXL viewer): each landing drop sends out a
-// short train of waves. They aren't drawn on top — they tilt the floor's surface
-// normal, which bends the reflected image and catches light on the wave faces.
-const ND = isMobile ? 28 : 80;            // live ripples at once
-const RIP_LIFE = 1.7;
-const FloorShader = {
-  name: 'WetPlaza',
-  uniforms: {
-    color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null },
-    uTime: { value: 0 },
-    uJets: { value: [] }, uJetCol: { value: [] }, uDrops: { value: [] },
-    uRipK: { value: (Math.PI * 2) / 0.11 },    // ~11 cm wavelength
-    uRipSpeed: { value: 0.55 },                // m/s ring-front speed
-    uRipLife: { value: RIP_LIFE },
-    uRipAmp: { value: 0.011 },
-  },
-  vertexShader: `
-    uniform mat4 textureMatrix; varying vec4 vUv; varying vec3 vW;
-    void main(){ vUv = textureMatrix * vec4(position, 1.0); vW = (modelMatrix * vec4(position,1.0)).xyz;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `
-    #define NJ ${NJ}
-    #define ND ${ND}
-    uniform sampler2D tDiffuse; uniform float uTime;
-    uniform vec3 uJets[NJ]; uniform vec3 uJetCol[NJ]; uniform vec3 uDrops[ND];
-    uniform float uRipK, uRipSpeed, uRipLife, uRipAmp;
-    varying vec4 vUv; varying vec3 vW;
-    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
-    float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
-      return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y); }
+scene.add(new THREE.HemisphereLight(0x1c2a55, 0x040308, 0.22));
 
-    // surface slope (dh/dx, dh/dz) at p from one drop d = (x, z, startTime)
-    vec2 rippleSlope(vec2 p, vec3 d){
-      float age = uTime - d.z;
-      if (age < 0.0 || age > uRipLife) return vec2(0.0);
-      vec2 dv = p - d.xy; float r = length(dv);
-      float R = uRipSpeed * age;
-      float lambda = 6.2831853 / uRipK;
-      float W = lambda * 4.0;                      // a train of ~4 waves behind the front
-      if (r > R + lambda || r < R - W - lambda) return vec2(0.0);
-      float env = smoothstep(R - W, R - W * 0.35, r) * (1.0 - smoothstep(R - lambda * 0.35, R + lambda * 0.35, r));
-      float life = 1.0 - age / uRipLife;
-      float slope = uRipAmp * life * sqrt(life) * uRipK * cos(uRipK * (r - R)) * env;
-      return dv / max(r, 1e-4) * slope;
+const U = { uTime:{value:0}, uA:{value:0}, uB:{value:0}, uMix:{value:0},
+  uKick:{value:0}, uAudio:{value:0}, uBeats:{value:new Array(6).fill(-100)} };
+
+/* ---------- projector content (render target) ---------- */
+const rt = new THREE.WebGLRenderTarget(1024, 1024, { generateMipmaps:false });
+const rtScene = new THREE.Scene();
+const rtCam = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+rtScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), new THREE.ShaderMaterial({
+  uniforms: U,
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
+  fragmentShader: GLSL_COMMON + /* glsl */`
+  varying vec2 vUv;
+  vec3 look(int m, vec2 uv, float t){
+    vec2 p=uv-.5;
+    if(m==0){ // liquid light — oil & water
+      vec3 P=vec3(p*2.6, t*.04);
+      vec2 q=vec2(fbm(P+vec3(0.,0.,t*.06)), fbm(P+vec3(5.2,1.3,-t*.05)));
+      float r=fbm(vec3(p*2.6+3.2*q, t*.08));
+      float cells=smoothstep(.36,.6,r);
+      float rim=smoothstep(.035,.0,abs(r-.47));
+      return pal(r*1.7+t*.025)*(cells*1.05+.03) + pal(r*1.7+t*.025+.5)*rim*1.3;
     }
+    if(m==1){ // ripples out from the fountain
+      float d=length(p);
+      float w=fract(d*7.-t*.5);
+      float ring=smoothstep(0.,.012,w)*smoothstep(.07,.012,w);
+      return pal(d*1.4-t*.1)*ring*1.15*smoothstep(.72,.08,d) + pal(t*.05)*.03;
+    }
+    if(m==2){ // sap — rising streaks (veins glow on the trees themselves)
+      float n=fbm(vec3(p.x*16., p.y*1.6-t*.55, t*.08));
+      return pal(uv.y*.5-t*.08)*pow(smoothstep(.48,.82,n),2.)*.75;
+    }
+    if(m==3){ // living lichen — spreading turing-like spots
+      vec3 P=vec3(p*5.2, t*.015);
+      float n=fbm(P);
+      float v=sin(n*40.+fbm(P*2.1)*7.);
+      float spots=smoothstep(.5,.88,v);
+      float front=mod(t*.055,1.35);
+      float grow=smoothstep(0.,.07, front-fbm(vec3(p*1.9,7.)));
+      float edge=smoothstep(.07,0.,abs(front-fbm(vec3(p*1.9,7.))-.02));
+      vec3 c=mix(vec3(.1,1.,.5), vec3(.25,.55,1.), fbm(P*.6+3.));
+      return c*spots*grow*1.5 + vec3(.9,.4,1.)*edge*spots*1.6;
+    }
+    if(m==4){ // kaleidoscope
+      float r=length(p); float a=atan(p.y,p.x)+t*.11;
+      float seg=6.2831853/8.;
+      a=mod(a,seg); a=abs(a-seg*.5);
+      vec2 q=vec2(cos(a),sin(a))*r;
+      float n=fbm(vec3(q*6.5-vec2(t*.16,0.), t*.06));
+      float petals=smoothstep(.42,.66,n) + .7*smoothstep(.04,0.,abs(fract(r*9.-t*.35)-.5)-.015)*smoothstep(.5,.1,r);
+      return pal(n*1.2+r*.8-t*.05)*petals*1.6;
+    }
+    // op-art sweep — interfering stripe fields
+    float ang=t*.05;
+    vec2 d1=vec2(cos(ang),sin(ang)), d2=vec2(cos(-ang*1.3+.35),sin(-ang*1.3+.35));
+    float s1=step(.5,fract(dot(p,d1)*52.+sin(p.y*15.+t*.8)*.8-t*.55));
+    float s2=step(.5,fract(dot(p,d2)*56.+t*.35));
+    return pal(floor(t*.2)*.25+length(p)*.5)*abs(s1-s2)*1.15;
+  }
+  void main(){
+    vec3 c=mix(look(uA,vUv,uTime), look(uB,vUv,uTime), uMix);
+    float dd=length(vUv-.5);
+    c+=pal(dd*1.4-uTime*.1)*beatRings(dd,.32,.01)*(.35+.9*wLook(1));
+    c*=1.+uKick*.55*uAudio;
+    c*=smoothstep(.72,.32,dd);
+    gl_FragColor=vec4(c,1.);
+  }`
+})));
 
-    void main(){
-      vec2 p = vW.xz; float r = length(p); float t = uTime;
-      float wet = clamp(smoothstep(11.0, 4.0, r) * 0.85 + 0.15, 0.0, 1.0);
-      float reach = 1.0 - smoothstep(6.0, 16.0, r);
-
-      // ripple wave field + a faint shimmer from the thin film of running water
-      vec2 rs = vec2(0.0);
-      for (int i = 0; i < ND; i++) rs += rippleSlope(p, uDrops[i]);
-      vec2 film = (vec2(noise(p * 3.0 + t * 0.7), noise(p * 3.0 - t * 0.6 + 5.0)) - 0.5) * 0.05 * wet;
-      vec2 slope = rs + film;
-
-      // Fresnel: water reflects ~2% looking straight down, far more at grazing angles
-      vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
-      vec3 V = normalize(cameraPosition - vW);
-      float cosT = clamp(dot(n, V), 0.0, 1.0);
-      float F = 0.02 + 0.98 * pow(1.0 - cosT, 5.0);
-
-      // reflection, bent by the ripples, slightly softened (wet stone isn't a perfect mirror)
-      vec2 ruv = vUv.xy / vUv.w + slope * 0.07;
-      vec2 o = vec2(0.0012, 0.0035);
-      vec3 refl = texture2D(tDiffuse, ruv).rgb * 0.4
-        + (texture2D(tDiffuse, ruv + o).rgb + texture2D(tDiffuse, ruv - o).rgb
-         + texture2D(tDiffuse, ruv + vec2(-o.x, o.y)).rgb + texture2D(tDiffuse, ruv + vec2(o.x, -o.y)).rgb) * 0.15;
-      float reflK = (0.05 + 0.8 * F) * mix(0.3, 1.0, wet);
-
-      vec3 base = vec3(0.012, 0.011, 0.016);
-      vec3 col = base + refl * reflK * reach;
-
-      // colored LED light pools around each nozzle
-      vec3 pool = vec3(0.0);
-      for (int i = 0; i < NJ; i++) {
-        vec2 d = p - uJets[i].xy; float d2 = dot(d, d);
-        float s = uJets[i].z;
-        pool += uJetCol[i] * (exp(-d2 * 90.0) * (0.08 + 0.45 * s) + exp(-d2 * 2.5) * 0.018 * s);
+/* ---------- materials with world-space glow (ripples + sap) ---------- */
+function glowMaterial(params, opts){
+  const m = new THREE.MeshStandardMaterial(params);
+  m.onBeforeCompile = (s) => {
+    Object.assign(s.uniforms, U);
+    s.vertexShader = 'varying vec3 vWPos;\n' + s.vertexShader.replace('#include <project_vertex>',
+      `#include <project_vertex>
+       vec4 wp=vec4(transformed,1.);
+       #ifdef USE_INSTANCING
+         wp=instanceMatrix*wp;
+       #endif
+       vWPos=(modelMatrix*wp).xyz;`);
+    s.fragmentShader = (opts.sap?'#define SAP\n':'') + (opts.leafSap?'#define LEAF_SAP\n':'') +
+      `#define RIPPLE_GAIN ${opts.gain.toFixed(2)}\n#define RIPPLE_FALL ${opts.fall.toFixed(3)}\n` +
+      'varying vec3 vWPos;\n' + GLSL_COMMON + s.fragmentShader.replace(
+      '#include <emissivemap_fragment>', /* glsl */`
+      #include <emissivemap_fragment>
+      vec3 glow=vec3(0.);
+      float wr=wLook(1);
+      if(wr>.001){
+        float d=length(vec3(vWPos.x, vWPos.y*.55, vWPos.z));
+        float w=fract(d*.17-uTime*.4);
+        float ring=smoothstep(0.,.01,w)*smoothstep(.055,.01,w);
+        glow+=pal(d*.05-uTime*.1)*ring*wr*RIPPLE_GAIN*exp(-d*RIPPLE_FALL);
       }
-      col += pool * (0.35 + 0.65 * wet) * reach;
+      #ifdef SAP
+      float ws=wLook(2);
+      if(ws>.001){
+        float n=vnoise(vec3(vWPos.x*2.2, vWPos.y*.3, vWPos.z*2.2));
+        float n2=vnoise(vec3(vWPos.x*4.8, vWPos.y*.6, vWPos.z*4.8)+11.);
+        float vein=smoothstep(.06,0.,abs(n-.5)) + .6*smoothstep(.045,0.,abs(n2-.5));
+        float pulse=pow(fract(vWPos.y*.09-uTime*.3+n*.4),5.);
+        glow+=pal(vWPos.y*.04-uTime*.07)*vein*(pulse*(2.8+uKick*3.*uAudio)+.06)*ws*1.5;
+      }
+      #endif
+      #ifdef LEAF_SAP
+      float wl=wLook(2);
+      if(wl>.001){
+        float pulse=pow(fract(vWPos.y*.09-uTime*.3+vnoise(vWPos*.7)*.5),9.);
+        float sparkle=step(.55,vnoise(vWPos*3.1));
+        glow+=pal(vWPos.y*.04-uTime*.07)*pulse*sparkle*wl*1.6*(1.+uKick*1.5*uAudio);
+      }
+      #endif
+      float bd=length(vWPos.xz);
+      glow+=pal(bd*.05-uTime*.1)*beatRings(bd,12.,.28)*RIPPLE_GAIN*(.35+.9*wLook(1));
+      totalEmissiveRadiance+=glow;`);
+    if(opts.fade) s.fragmentShader = s.fragmentShader.replace('#include <dithering_fragment>',
+      `#include <dithering_fragment>
+      gl_FragColor.a *= 1.-smoothstep(${opts.fade[0].toFixed(1)}, ${opts.fade[1].toFixed(1)}, length(vWPos.xz));`);
+  };
+  return m;
+}
 
-      // light caught on ripple faces: slopes tilted toward the viewer glint, backs darken
-      vec2 vdir = normalize(V.xz + 1e-5);
-      float facing = dot(-rs, vdir) * 2.2;
-      float lit = clamp(facing, 0.0, 1.0), shade = clamp(-facing, 0.0, 1.0);
-      col += (pool * 2.5 + refl * 0.25 + vec3(0.06, 0.068, 0.085)) * lit * reach;
-      col *= 1.0 - shade * 0.4;
-
-      float alpha = 1.0 - smoothstep(7.0, 18.0, r);
-      gl_FragColor = vec4(col, alpha);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-    }`
-};
-const floorGeo = new THREE.CircleGeometry(20, 96);
-const floor = new Reflector(floorGeo, {
-  shader: FloorShader,
-  textureWidth: Math.floor(innerWidth * Q.dpr * Q.refl),
-  textureHeight: Math.floor(innerHeight * Q.dpr * Q.refl),
-  multisample: isMobile ? 0 : 4,
-  clipBias: 0.002
+/* ---------- procedural textures ---------- */
+function canvasTex(w, h, draw, srgb=true){
+  const c = document.createElement('canvas'); c.width=w; c.height=h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  if(srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+const rng = rngFrom(20261114);
+// bark: vertical fissures
+const barkTex = canvasTex(256, 512, (g,w,h) => {
+  g.fillStyle='#a49e95'; g.fillRect(0,0,w,h);
+  for(let i=0;i<1400;i++){
+    let x=rng()*w, y=rng()*h; const len=30+rng()*220, a=.08+rng()*.5;
+    g.strokeStyle=`rgba(${30+rng()*20|0},${26+rng()*16|0},${22+rng()*14|0},${a})`;
+    g.lineWidth=.6+rng()*3.2; g.beginPath(); g.moveTo(x,y);
+    for(let k=0;k<len;k+=8){ x+=(rng()-.5)*3; y+=8; g.lineTo(x,y); }
+    g.stroke();
+  }
+  for(let i=0;i<500;i++){ g.fillStyle=`rgba(255,250,240,${rng()*.08})`; g.fillRect(rng()*w,rng()*h,1+rng()*4,4+rng()*18); }
 });
-floor.rotation.x = -Math.PI / 2;
-floor.material.transparent = true;
-floor.renderOrder = -1;   // draw before the water so the spray always sits on top
-const floorU = floor.material.uniforms;
-floorU.uJets.value = jets.map(j => new THREE.Vector3(j.x, -j.z, 0)); // plane local XY -> world XZ (z flipped by rotation)
-floorU.uJetCol.value = jets.map(() => new THREE.Color());
-floorU.uDrops.value = Array.from({ length: ND }, () => new THREE.Vector3(0, 0, -1e4));
-// world xz used in shader comes from vW so positions are in world space:
-floorU.uJets.value.forEach((v, i) => v.set(jets[i].x, jets[i].z, 0));
-scene.add(floor);
+barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
+// leaf sprig: a stem carrying alternating pointed leaves
+const leafTex = canvasTex(256, 256, (g) => {
+  g.translate(128, 252);
+  g.strokeStyle='#b9c2b4'; g.lineWidth=3; g.beginPath(); g.moveTo(0,0); g.quadraticCurveTo(14,-120,4,-200); g.stroke();
+  const leaf = (x,y,ang,L,shade) => {
+    const W=L*.36; g.save(); g.translate(x,y); g.rotate(ang);
+    g.fillStyle=`hsl(${95+shade*20},${10+shade*8}%,${66+shade*16}%)`;
+    g.beginPath(); g.moveTo(0,0); g.bezierCurveTo(W,-L*.22,W*.8,-L*.78,0,-L); g.bezierCurveTo(-W*.8,-L*.78,-W,-L*.22,0,0); g.fill();
+    g.strokeStyle='rgba(60,70,55,.35)'; g.lineWidth=1.2; g.beginPath(); g.moveTo(0,0); g.lineTo(0,-L*.92); g.stroke();
+    g.restore();
+  };
+  for(let i=0;i<8;i++){
+    const t=.14+i*.105, y=-t*205, x=Math.sin(t*2.4)*12, side=i%2?1:-1;
+    leaf(x, y, side*(1.05-t*.55), 74*(1-t*.35), rng());
+  }
+  leaf(4,-198,.05,62,rng());
+});
 
-// ---------------------------------------------------------------------------
-// Nozzles: steel caps + LED rings (instanced)
-// ---------------------------------------------------------------------------
-const capMesh = new THREE.InstancedMesh(new THREE.CircleGeometry(0.03, 16).rotateX(-Math.PI / 2),
-  new THREE.MeshStandardMaterial({ color: 0x6d7080, metalness: 1, roughness: 0.3 }), NJ);
-const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
-const ringMesh = new THREE.InstancedMesh(new THREE.RingGeometry(0.034, 0.052, 24).rotateX(-Math.PI / 2), ringMat, NJ);
-{
-  const m = new THREE.Matrix4();
-  jets.forEach((j, i) => {
-    capMesh.setMatrixAt(i, m.makeTranslation(j.x, 0.004, j.z));
-    ringMesh.setMatrixAt(i, m.makeTranslation(j.x, 0.006, j.z));
-    ringMesh.setColorAt(i, new THREE.Color(0, 0, 0));
-  });
-}
-scene.add(capMesh, ringMesh);
+const barkMat = glowMaterial({ color:0xb8b2aa, map:barkTex, bumpMap:barkTex, bumpScale:3, roughness:.9 }, {sap:true, gain:.9, fall:.03});
+const leafMat = glowMaterial({ color:0xffffff, map:leafTex, alphaTest:.45, side:THREE.DoubleSide, roughness:.7 }, {sap:false, leafSap:true, gain:.8, fall:.03});
+// round floor that fades into the night, like the Fountain Court plaza
+const groundMat = glowMaterial({ color:0x2e2d34, roughness:.95, transparent:true, depthWrite:false }, {sap:false, gain:.3, fall:.07, fade:[17, 31]});
+const leafDepth = new THREE.MeshDepthMaterial({ depthPacking:THREE.RGBADepthPacking, map:leafTex, alphaTest:.45 });
 
-// Soft fill so the steel nozzle caps read
-scene.add(new THREE.HemisphereLight(0xcfc8ff, 0x2a1830, 0.3));
+/* ---------- procedural trees: curved tapering limbs + leaf-card foliage ---------- */
+function rngFrom(seed){ return () => { seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+const V = (x=0,y=0,z=0) => new THREE.Vector3(x,y,z);
+const randUnit = (R) => { const z=R()*2-1, a=R()*Math.PI*2, r=Math.sqrt(1-z*z); return V(Math.cos(a)*r, z, Math.sin(a)*r); };
+const lerp = (a,b,t) => a+(b-a)*t;
 
-// ---------------------------------------------------------------------------
-// Palettes (blues · purples · pinks · greens)
-// ---------------------------------------------------------------------------
-const PALETTES = {
-  'Fountain Court': ['#2a6bff', '#18c8ff', '#7b46ff', '#c03dff', '#ff3fae', '#ff6fd0', '#2dffa0', '#14d7c4'],
-  'Sweep':          ['#2a6bff', '#7b46ff', '#ff3fae', '#2dffa0'],
-  'Ocean':          ['#0a3dff', '#1a8bff', '#18d6ff', '#1ef0d0', '#3a5bff'],
-  'Aurora':         ['#2dffa0', '#14d7c4', '#7b46ff', '#b04dff', '#2dff6a'],
-  'Candy':          ['#ff3fae', '#ff7ad9', '#b04dff', '#ff4f8a'],
-};
-const palCols = {};
-for (const k in PALETTES) palCols[k] = PALETTES[k].map(h => new THREE.Color(h));
-let paletteName = 'Fountain Court';
-const _c = new THREE.Color();
-function samplePalette(u, out) {
-  const cols = palCols[paletteName], n = cols.length;
-  if (!Number.isFinite(u)) u = 0;
-  u = ((u % 1) + 1) % 1 * n; const i = Math.floor(u), f = u - i;
-  const s = f * f * (3 - 2 * f);
-  return out.copy(cols[i]).lerp(cols[(i + 1) % n], s);
-}
-
-// ---------------------------------------------------------------------------
-// Choreography — each sequence returns a jet strength 0..1 and a palette position
-// ---------------------------------------------------------------------------
-const pulse = (x, w = 0.35) => { x = ((x % 1) + 1) % 1; return Math.max(0, 1 - Math.abs(x - 0.5) / w) ** 1.5; };
-const hash1 = n => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
-
-const SEQUENCES = [
-  { name: 'Rolling Wave', dur: 14, mist: false,
-    grid: (j, t) => pulse(j.x * 0.11 - t * 0.38, 0.26),
-    ring: (j, t) => 0.75 * pulse(Math.cos(j.a) * 0.11 - t * 0.38 + 0.2, 0.26),
-    hue: (j, t) => j.x * 0.03 + t * 0.04 },
-  { name: 'Ripple Bloom', dur: 14, mist: true,
-    grid: (j, t) => pulse(j.r * 0.16 - t * 0.55, 0.22),
-    ring: (j, t) => 0.4 * pulse(t * 0.55 - 0.1, 0.25),
-    hue: (j, t) => j.r * 0.05 - t * 0.05 + 0.25 },
-  { name: 'Checker Beat', dur: 12, mist: false,
-    grid: (j, t) => { const beat = Math.floor(t * 1.6); const on = ((j.ix + j.iz + beat) % 2) === 0; const ph = (t * 1.6) % 1; return on ? 0.35 + 0.65 * Math.max(0, 1 - ph * 1.3) : 0; },
-    ring: (j, t) => ((j.i + Math.floor(t * 1.6)) % 2 ? 0.6 : 0),
-    hue: (j, t) => Math.floor(t * 1.6) * 0.17 + ((j.ix + j.iz) % 2) * 0.35 },
-  { name: 'Spiral Chase', dur: 14, mist: false,
-    grid: (j, t) => pulse(j.a / (Math.PI * 2) + j.r * 0.07 - t * 0.45, 0.18),
-    ring: (j, t) => pulse(j.i / RING - t * 0.45, 0.16),
-    hue: (j, t) => j.a / (Math.PI * 2) + t * 0.05 },
-  { name: 'Summer Rain', dur: 12, mist: true,
-    grid: (j, t) => { const slot = Math.floor(t * 2.2 + hash1(j.ix * 13 + j.iz) * 7); const r = hash1(slot * 3.1 + j.ix * 7.7 + j.iz * 1.3); const ph = (t * 2.2 + hash1(j.ix * 13 + j.iz) * 7) % 1; return r > 0.62 ? (r - 0.62) / 0.38 * Math.sin(ph * Math.PI) : 0; },
-    ring: () => 0,
-    hue: (j, t) => hash1(j.ix * 3 + j.iz * 11) * 0.6 + t * 0.03 },
-  { name: 'Breathe', dur: 12, mist: true,
-    grid: (j, t) => Math.pow(Math.max(0, Math.sin(t * 0.9 - j.r * 0.25)), 1.3) * (0.95 - j.r * 0.06),
-    ring: (j, t) => 0.6 * Math.pow(Math.max(0, -Math.sin(t * 0.9)), 1.3),
-    hue: (j, t) => t * 0.07 },
-  { name: 'Crossfire', dur: 12, mist: false,
-    grid: (j, t) => Math.max(pulse((j.x + j.z) * 0.08 - t * 0.5, 0.18), pulse((j.x - j.z) * 0.08 + t * 0.5, 0.18)),
-    ring: (j, t) => pulse(j.i / RING * 2 + t * 0.5, 0.2),
-    hue: (j, t) => (j.x + j.z > 0 ? 0.0 : 0.5) + t * 0.05 },
-  { name: 'Grand Finale', dur: 9, mist: true,
-    grid: (j, t) => 0.75 + 0.25 * Math.sin(t * 6 + j.r),
-    ring: () => 1.0,
-    hue: (j, t) => Math.floor(t * 2.5) * 0.23 + j.r * 0.04 },
+const LEVELS = [
+  { len:[5.6,6.6], segs:16, radial:18, kids:[7,9], range:[.32,.97], ang:[.8,1.3], curl:.07, trop:.035 },
+  { len:[5.0,6.8], segs:12, radial:11, kids:[6,8], range:[.15,1.0], ang:[.5,.95],  curl:.12, trop:.025 },
+  { len:[1.7,2.7], segs:6,  radial:6,  kids:[4,6], range:[.2,1.0],  ang:[.6,1.05], curl:.16, trop:.0 },
+  { len:[.9,1.5],  segs:3,  radial:4,  kids:[0,0], range:[0,0],     ang:[0,0],     curl:.22, trop:-.09 },
 ];
-const seqSelect = document.getElementById('seqSelect');
-SEQUENCES.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; seqSelect.appendChild(o); });
-const palSelect = document.getElementById('palSelect');
-Object.keys(PALETTES).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = k; palSelect.appendChild(o); });
-
-const REST = 3.2;   // seconds of quiet between shows
-const show = { loop: false, resting: false, restT: 0, next: 0, idx: 0, prev: -1, t: 0, prevT: 0, blend: 1 };
-function startSequence(i, fromRest = false) {
-  show.prev = show.idx; show.prevT = show.t; show.idx = i; show.t = 0; show.blend = fromRest ? 1 : 0; show.resting = false;
-  document.getElementById('seqName').textContent = SEQUENCES[i].name;
-  seqSelect.value = String(i);
-  if (SEQUENCES[i].mist && mistOn) mistBurst(SEQUENCES[i].name === 'Grand Finale' ? 1.6 : 1.0);
+const leafMatrices = [], leafColors = [];
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = V();
+function pushLeaf(pos, size, R, tint, flat=false){
+  if(flat) _e.set(-Math.PI/2+(R()-.5)*.3, 0, R()*Math.PI*2);
+  else _e.set(R()*Math.PI*2, R()*Math.PI*2, R()*Math.PI*2);
+  _q.setFromEuler(_e); _s.set(size,size,size);
+  leafMatrices.push(new THREE.Matrix4().compose(pos, _q, _s));
+  leafColors.push(new THREE.Color().setHSL(.27+R()*.06, .12+R()*.12, tint*(.55+R()*.25)));
 }
 
-// ---------------------------------------------------------------------------
-// Water particles (CPU ballistic sim, packed buffers, additive glow rendering)
-// ---------------------------------------------------------------------------
-const MAXP = Q.maxParticles;
-const pPos = new Float32Array(MAXP * 3), pVel = new Float32Array(MAXP * 3);
-const pCol = new Float32Array(MAXP * 4), pSize = new Float32Array(MAXP);
-const pLife = new Float32Array(MAXP), pMax = new Float32Array(MAXP), pA = new Float32Array(MAXP);
-const pBounced = new Uint8Array(MAXP);
-let pCount = 0;
+function buildTree(seed, at, scale){
+  const R = rngFrom(seed);
+  const P=[], N=[], UV=[], I=[]; let base=0;
 
-const pGeo = new THREE.BufferGeometry();
-const posAttr = new THREE.BufferAttribute(pPos, 3).setUsage(THREE.DynamicDrawUsage);
-const colAttr = new THREE.BufferAttribute(pCol, 4).setUsage(THREE.DynamicDrawUsage);
-const sizeAttr = new THREE.BufferAttribute(pSize, 1).setUsage(THREE.DynamicDrawUsage);
-pGeo.setAttribute('position', posAttr); pGeo.setAttribute('pcol', colAttr); pGeo.setAttribute('size', sizeAttr);
-pGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 3, 0), 20);
-
-const waterMat = new THREE.ShaderMaterial({
-  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  uniforms: { uScale: { value: 1 } },
-  vertexShader: `
-    attribute vec4 pcol; attribute float size; uniform float uScale; varying vec4 vC;
-    void main(){
-      vec4 mv = modelViewMatrix * vec4(position, 1.0);
-      gl_Position = projectionMatrix * mv;
-      gl_PointSize = max(1.0, size * uScale / -mv.z);
-      float h = clamp(position.y / ${MAX_H.toFixed(1)}, 0.0, 1.0);
-      vC = pcol;
-      float sh = sqrt(h);
-      vec3 waterCol = vec3(0.78, 0.87, 1.0);                      // clear water catching light
-      vC.rgb = mix(waterCol, pcol.rgb, mix(0.85, 0.38, sh));       // LED tint fades as the water rises
-      vC.rgb *= mix(1.15, 0.7, sh);
-      vC.a *= clamp(1.0 - (-mv.z - 30.0) / 30.0, 0.0, 1.0);
-    }`,
-  fragmentShader: `
-    varying vec4 vC;
-    void main(){
-      vec2 c = gl_PointCoord - 0.5; float d = dot(c, c) * 4.0;
-      if (d > 1.0) discard;
-      float a = exp(-d * 2.6);
-      gl_FragColor = vec4(vC.rgb, vC.a * a);
-    }`
-});
-const water = new THREE.Points(pGeo, waterMat);
-water.frustumCulled = false;
-scene.add(water);
-
-function emit(j, dt, strength) {
-  const h = Math.max(0.15, strength * MAX_H * (j.kind === 'ring' ? 0.8 : 1));
-  const vy0 = Math.sqrt(2 * GRAVITY * h);
-  const rate = (j.kind === 'ring' ? 380 : 470) * Q.emit * Math.min(1, strength * 2.2 + 0.1);
-  j.emitAcc += rate * dt;
-  let n = Math.floor(j.emitAcc); j.emitAcc -= n;
-  const c = j.color;
-  const inX = -Math.cos(j.a), inZ = -Math.sin(j.a);
-  while (n-- > 0 && pCount < MAXP) {
-    const i = pCount++;
-    const core = Math.random() < 0.6;
-    const spread = core ? 0.05 : 0.28 + strength * 0.15;
-    const ang = Math.random() * Math.PI * 2, rr = Math.random() * spread;
-    let vx = Math.cos(ang) * rr, vz = Math.sin(ang) * rr;
-    const vy = vy0 * (core ? 1 - Math.random() * 0.03 : 0.82 + Math.random() * 0.16);
-    if (j.kind === 'ring') { vx += inX * vy * 0.42; vz += inZ * vy * 0.42; }
-    const sub = Math.random() * dt;
-    pPos[i * 3] = j.x + vx * sub; pPos[i * 3 + 1] = 0.02 + vy * sub; pPos[i * 3 + 2] = j.z + vz * sub;
-    pVel[i * 3] = vx; pVel[i * 3 + 1] = vy - GRAVITY * sub; pVel[i * 3 + 2] = vz;
-    pCol[i * 4] = c.r; pCol[i * 4 + 1] = c.g; pCol[i * 4 + 2] = c.b;
-    pA[i] = core ? 0.15 : 0.11; pCol[i * 4 + 3] = pA[i];
-    pSize[i] = core ? 0.055 + Math.random() * 0.03 : 0.04 + Math.random() * 0.05;
-    pMax[i] = (2 * vy) / GRAVITY + 0.3; pLife[i] = 0; pBounced[i] = 0;
-  }
-}
-
-function killParticle(i) {
-  const last = --pCount;
-  if (i === last) return;
-  pPos[i * 3] = pPos[last * 3]; pPos[i * 3 + 1] = pPos[last * 3 + 1]; pPos[i * 3 + 2] = pPos[last * 3 + 2];
-  pVel[i * 3] = pVel[last * 3]; pVel[i * 3 + 1] = pVel[last * 3 + 1]; pVel[i * 3 + 2] = pVel[last * 3 + 2];
-  pCol[i * 4] = pCol[last * 4]; pCol[i * 4 + 1] = pCol[last * 4 + 1]; pCol[i * 4 + 2] = pCol[last * 4 + 2]; pCol[i * 4 + 3] = pCol[last * 4 + 3];
-  pSize[i] = pSize[last]; pLife[i] = pLife[last]; pMax[i] = pMax[last]; pA[i] = pA[last]; pBounced[i] = pBounced[last];
-}
-
-// Ripple drops: landing water starts a ripple in the floor shader (oldest is recycled)
-let dropHead = 0, dropBudget = 0, nowT = 0;
-function addDrop(x, z, force = false) {
-  if (!force) { if (dropBudget < 1) return; dropBudget -= 1; }
-  floorU.uDrops.value[dropHead].set(x, z, nowT);
-  dropHead = (dropHead + 1) % ND;
-}
-
-let splashCount = 0;
-function updateParticles(dt) {
-  splashCount = 0;
-  dropBudget = Math.min(dropBudget + dt * ND / RIP_LIFE, 6);   // frame-rate independent ripple rate
-  const drag = Math.exp(-0.25 * dt);
-  for (let i = pCount - 1; i >= 0; i--) {
-    pLife[i] += dt;
-    const k = i * 3;
-    pVel[k + 1] -= GRAVITY * dt;
-    pVel[k] *= drag; pVel[k + 2] *= drag;
-    pPos[k] += pVel[k] * dt; pPos[k + 1] += pVel[k + 1] * dt; pPos[k + 2] += pVel[k + 2] * dt;
-    if (pPos[k + 1] < 0) {
-      if (!pBounced[i]) {
-        splashCount++;
-        if (Math.random() < 0.08) addDrop(pPos[k], pPos[k + 2]);
-      }
-      if (!pBounced[i] && Math.random() < 0.42) {
-        // splash crown: droplets kick up and outward off the wet floor, turning clear/white
-        pBounced[i] = 1;
-        pPos[k + 1] = 0.001;
-        const impact = Math.min(1, Math.abs(pVel[k + 1]) / 8);
-        const sp = (0.35 + Math.random() * 1.0) * (0.5 + impact), a = Math.random() * Math.PI * 2;
-        pVel[k] = pVel[k] * 0.15 + Math.cos(a) * sp; pVel[k + 2] = pVel[k + 2] * 0.15 + Math.sin(a) * sp;
-        pVel[k + 1] = (0.6 + Math.random() * 1.4) * (0.4 + impact);
-        pCol[i * 4] += (1 - pCol[i * 4]) * 0.6; pCol[i * 4 + 1] += (1 - pCol[i * 4 + 1]) * 0.6; pCol[i * 4 + 2] += (1 - pCol[i * 4 + 2]) * 0.6;
-        pSize[i] *= 0.55; pA[i] *= 1.1; pLife[i] = 0; pMax[i] = 0.35 + Math.random() * 0.35;
-      } else { killParticle(i); continue; }
+  function tube(pts, radii, radial){
+    const n=pts.length, T=[], Nm=[], Bn=[];
+    for(let i=0;i<n;i++) T[i]=(i<n-1? pts[i+1].clone().sub(pts[i]) : pts[i].clone().sub(pts[i-1])).normalize();
+    let ref = Math.abs(T[0].y)>.9 ? V(1,0,0) : V(0,1,0);
+    Nm[0]=V().crossVectors(T[0],ref).normalize();
+    for(let i=1;i<n;i++){
+      const ax=V().crossVectors(T[i-1],T[i]); const l=ax.length();
+      Nm[i]=Nm[i-1].clone();
+      if(l>1e-6) Nm[i].applyAxisAngle(ax.divideScalar(l), Math.acos(THREE.MathUtils.clamp(T[i-1].dot(T[i]),-1,1)));
     }
-    const lifeT = pLife[i] / pMax[i];
-    if (lifeT > 1) { killParticle(i); continue; }
-    pCol[i * 4 + 3] = pA[i] * (pBounced[i] ? 1 - lifeT : 1);
+    let vlen=0; const uRep=Math.max(1,Math.round(radii[0]*6));
+    for(let i=0;i<n;i++){
+      Bn[i]=V().crossVectors(T[i],Nm[i]);
+      if(i>0) vlen+=pts[i].distanceTo(pts[i-1]);
+      for(let j=0;j<=radial;j++){
+        const a=j/radial*Math.PI*2, c=Math.cos(a), s=Math.sin(a);
+        const d=Nm[i].clone().multiplyScalar(c).addScaledVector(Bn[i],s);
+        const r=radii[i]*(1+.06*Math.sin(a*5+i*.9+seed)+.04*Math.sin(a*11-i*1.7));
+        const p=pts[i].clone().addScaledVector(d,r);
+        P.push(p.x,p.y,p.z); N.push(d.x,d.y,d.z); UV.push(j/radial*uRep, vlen*.45);
+      }
+    }
+    for(let i=0;i<n-1;i++) for(let j=0;j<radial;j++){
+      const a=base+i*(radial+1)+j, b=a+radial+1;
+      I.push(a,a+1,b, b,a+1,b+1);
+    }
+    base+=n*(radial+1);
   }
-  pGeo.setDrawRange(0, pCount);
-  posAttr.clearUpdateRanges?.(); colAttr.clearUpdateRanges?.(); sizeAttr.clearUpdateRanges?.();
-  posAttr.addUpdateRange(0, pCount * 3); colAttr.addUpdateRange(0, pCount * 4); sizeAttr.addUpdateRange(0, pCount);
-  posAttr.needsUpdate = colAttr.needsUpdate = sizeAttr.needsUpdate = true;
+
+  function branch(level, start, dir, len, rad){
+    const L=LEVELS[level], pts=[start.clone()], radii=[];
+    const d=dir.clone(), step=len/L.segs; let p=start.clone();
+    for(let s=1;s<=L.segs;s++){
+      d.addScaledVector(randUnit(R), L.curl); d.y+=L.trop; d.normalize();
+      p=p.clone().addScaledVector(d,step); pts.push(p);
+    }
+    const radAt = (t) => rad*(1-.74*t)*(level===0 ? 1+.85*Math.pow(Math.max(0,1-t/.14),2) : 1);
+    for(let s=0;s<=L.segs;s++) radii.push(radAt(s/L.segs));
+    tube(pts, radii, L.radial);
+
+    const pointAt = (t) => { const f=t*L.segs, i=Math.min(Math.floor(f),L.segs-1), k=f-i;
+      return { p: pts[i].clone().lerp(pts[i+1],k), d: pts[i+1].clone().sub(pts[i]).normalize() }; };
+
+    if(level<3){
+      const nk = L.kids[0] + Math.floor(R()*(L.kids[1]-L.kids[0]+1));
+      let phi = R()*Math.PI*2;
+      for(let k=0;k<nk;k++){
+        const t = lerp(L.range[0], L.range[1], Math.min(1,(k+.2+R()*.6)/nk));
+        const {p:sp, d:pd} = pointAt(t);
+        phi += 2.39996;
+        let perp = V().crossVectors(pd, Math.abs(pd.y)>.9?V(1,0,0):V(0,1,0)).normalize().applyAxisAngle(pd, phi);
+        const ang = lerp(L.ang[0], L.ang[1], R());
+        const cd = pd.clone().multiplyScalar(Math.cos(ang)).addScaledVector(perp, Math.sin(ang)).normalize();
+        const NL = LEVELS[level+1];
+        let cl = lerp(NL.len[0], NL.len[1], R())*scale;
+        cl *= level===0 ? (1.15-.45*t) : (1.05-.4*t);
+        branch(level+1, sp, cd, cl, radAt(t)*lerp(.55,.72,R()));
+      }
+    }
+    // foliage
+    if(level>=2){
+      const count = level===3 ? 26 : 8;
+      for(let k=0;k<count;k++){
+        const t = level===3 ? R() : .45+R()*.55;
+        const {p:lp} = pointAt(t);
+        lp.addScaledVector(randUnit(R), .15+R()*.65);
+        pushLeaf(lp, .6+R()*.42, R, 1);
+      }
+    }
+  }
+
+  const tilt = V((R()-.5)*.14, 1, (R()-.5)*.14).normalize();
+  branch(0, at.clone().setY(-.3), tilt, lerp(LEVELS[0].len[0],LEVELS[0].len[1],R())*scale, .62*scale);
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P,3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(N,3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(UV,2));
+  g.setIndex(I);
+  const mesh = new THREE.Mesh(g, barkMat);
+  mesh.castShadow = mesh.receiveShadow = true;
+  scene.add(mesh);
 }
 
-// ---------------------------------------------------------------------------
-// Mist / fog puffs — glowing low clouds tinted by the LED show
-// ---------------------------------------------------------------------------
-const MM = Q.mist;
-const mPos = new Float32Array(MM * 3), mCol = new Float32Array(MM * 4), mSize = new Float32Array(MM), mRot = new Float32Array(MM);
-const mLife = new Float32Array(MM).fill(1), mDur = new Float32Array(MM).fill(1), mVel = new Float32Array(MM * 3);
-const mGeo = new THREE.BufferGeometry();
-mGeo.setAttribute('position', new THREE.BufferAttribute(mPos, 3).setUsage(THREE.DynamicDrawUsage));
-mGeo.setAttribute('pcol', new THREE.BufferAttribute(mCol, 4).setUsage(THREE.DynamicDrawUsage));
-mGeo.setAttribute('size', new THREE.BufferAttribute(mSize, 1).setUsage(THREE.DynamicDrawUsage));
-mGeo.setAttribute('rot', new THREE.BufferAttribute(mRot, 1));
-const mistMat = new THREE.ShaderMaterial({
-  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-  uniforms: { uScale: { value: 1 }, uTime: { value: 0 } },
-  vertexShader: `
-    attribute vec4 pcol; attribute float size; attribute float rot; uniform float uScale; varying vec4 vC; varying float vR;
-    void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); gl_Position = projectionMatrix * mv;
-      gl_PointSize = min(size * uScale / -mv.z, 900.0); vC = pcol; vR = rot;
-      vC.a *= smoothstep(0.6, 2.5, -mv.z); }`,          // fade when the camera is inside the cloud
-  fragmentShader: `
-    uniform float uTime; varying vec4 vC; varying float vR;
-    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
-    float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
-      return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
-    void main(){
-      vec2 c = gl_PointCoord - 0.5; float cs = cos(vR), sn = sin(vR); c = mat2(cs,-sn,sn,cs) * c;
-      float d = length(c) * 2.0; if (d > 1.0) discard;
-      float n = noise(c * 4.0 + vR * 10.0 + uTime * 0.15) * 0.6 + noise(c * 9.0 - uTime * 0.2) * 0.4;
-      float a = smoothstep(1.0, 0.1, d) * (0.45 + 0.75 * n);
-      gl_FragColor = vec4(vC.rgb, vC.a * a);
-    }`
+const TREES = [ [V(0,0,-9), 1.4, 11], [V(-12.5,0,-1), 1.12, 23], [V(12,0,-3), 1.05, 37] ];
+TREES.forEach(([p,s,seed]) => buildTree(seed, p, s));
+
+// undergrowth shrubs
+const SHRUBS = [[-4.5,4.5],[5,5.5],[-16,-6],[17,4],[-7,-16],[8,-16],[-16,8],[18,-7],[3,-18],[-12,9],[12,9],[-8,-6],[7,-8]];
+SHRUBS.forEach(([x,z]) => {
+  const rx=1+rng()*1.1, ry=.7+rng()*.6;
+  for(let i=0;i<300;i++){
+    const u=randUnit(rng).multiplyScalar(Math.cbrt(rng()));
+    const p=V(x+u.x*rx, Math.max(.1, ry*.8+u.y*ry), z+u.z*rx);
+    pushLeaf(p, .42+rng()*.3, rng, .85);
+  }
 });
-const mist = new THREE.Points(mGeo, mistMat);
-mist.frustumCulled = false;
-scene.add(mist);
-
-let mistOn = true, mistQueue = 0;
-function spawnMist(x, z, big = 1) {
-  for (let i = 0; i < MM; i++) {
-    if (mLife[i] < mDur[i]) continue;
-    mPos[i * 3] = x + (Math.random() - 0.5) * 1.2; mPos[i * 3 + 1] = 0.15 + Math.random() * 0.35; mPos[i * 3 + 2] = z + (Math.random() - 0.5) * 1.2;
-    const a = Math.random() * Math.PI * 2, s = 0.15 + Math.random() * 0.35;
-    mVel[i * 3] = Math.cos(a) * s; mVel[i * 3 + 1] = 0.05 + Math.random() * 0.12; mVel[i * 3 + 2] = Math.sin(a) * s;
-    mLife[i] = 0; mDur[i] = (5 + Math.random() * 4) * big; mRot[i] = Math.random() * 6.28;
-    mSize[i] = 0;
-    mGeo.attributes.rot.needsUpdate = true;
-    return true;
-  }
-  return false;
-}
-function mistBurst(intensity = 1) { mistQueue += Math.floor(MM * 0.4 * intensity); }
-
-function updateMist(dt, t) {
-  // release queued puffs over ~2s so the fog rolls out rather than popping
-  const release = Math.min(mistQueue, Math.ceil(MM * 0.4 * dt * 2));
-  for (let k = 0; k < release; k++) {
-    const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 6.0;
-    spawnMist(Math.cos(a) * r, Math.sin(a) * r, 1);
-  }
-  mistQueue -= release;
-  for (let i = 0; i < MM; i++) {
-    if (mLife[i] >= mDur[i]) { mCol[i * 4 + 3] = 0; mSize[i] = 0; continue; }
-    mLife[i] += dt;
-    const lt = mLife[i] / mDur[i];
-    mPos[i * 3] += mVel[i * 3] * dt; mPos[i * 3 + 1] += mVel[i * 3 + 1] * dt * (1 - lt); mPos[i * 3 + 2] += mVel[i * 3 + 2] * dt;
-    mRot[i] += dt * 0.08;
-    mSize[i] = 1.6 + lt * 3.2;
-    // tint by the colour of the nearest part of the show
-    const x = mPos[i * 3], z = mPos[i * 3 + 2];
-    samplePalette(Math.atan2(z, x) / 6.283 * 0.5 + Math.hypot(x, z) * 0.04 + t * 0.05, _c);
-    mCol[i * 4] = 0.12 + _c.r * 0.88; mCol[i * 4 + 1] = 0.12 + _c.g * 0.88; mCol[i * 4 + 2] = 0.15 + _c.b * 0.85;
-    mCol[i * 4 + 3] = 0.022 * Math.sin(Math.PI * Math.min(1, lt * 1.15)) ;
-  }
-  mGeo.attributes.rot.needsUpdate = true;
-  mGeo.attributes.position.needsUpdate = mGeo.attributes.pcol.needsUpdate = mGeo.attributes.size.needsUpdate = true;
+// leaf litter under the canopies
+for(let i=0;i<3200;i++){
+  const [c,s] = TREES[i%3]; const a=rng()*Math.PI*2, r=Math.sqrt(rng())*7.5*s;
+  const lx=c.x+Math.cos(a)*r, lz=c.z+Math.sin(a)*r;
+  if(Math.hypot(lx,lz) > 19 + rng()*3) continue; // keep litter on the visible part of the floor
+  pushLeaf(V(lx, .04+rng()*.04, lz), .35+rng()*.3, rng, .45, true);
 }
 
-// ---------------------------------------------------------------------------
-// Tap the plaza to trigger jets (splash-pad "stomp")
-// ---------------------------------------------------------------------------
-const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
-const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3();
-const taps = []; // {x, z, t}
-let downAt = null, lastInteract = -10;
-renderer.domElement.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY }; lastInteract = clock.elapsedTime; controls.autoRotate = false; });
-renderer.domElement.addEventListener('pointerup', e => {
-  if (!downAt) return;
-  const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y); downAt = null;
-  if (moved > 6) return;
-  ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-  raycaster.setFromCamera(ndc, camera);
-  if (!raycaster.ray.intersectPlane(groundPlane, hit)) return;
-  if (Math.hypot(hit.x, hit.z) > 9) return;
-  taps.push({ x: hit.x, z: hit.z, t: clock.elapsedTime });
-  for (let k = 0; k < 3; k++) addDrop(hit.x + (Math.random() - 0.5) * 0.15, hit.z + (Math.random() - 0.5) * 0.15, true);
-  if (mistOn && Math.random() < 0.35) for (let k = 0; k < 14; k++) spawnMist(hit.x, hit.z, 0.6);
-  hideHint();
-});
+{
+  const leaves = new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).translate(0,.5,0), leafMat, leafMatrices.length);
+  leafMatrices.forEach((m,i)=>{ leaves.setMatrixAt(i,m); leaves.setColorAt(i,leafColors[i]); });
+  leaves.castShadow = leaves.receiveShadow = true;
+  leaves.customDepthMaterial = leafDepth;
+  scene.add(leaves);
+}
 
-// ---------------------------------------------------------------------------
-// Camera views
-// ---------------------------------------------------------------------------
-const VIEWS = {
-  orbit:  { pos: [10.5, 3.4, 10.5], target: [0, 1.4, 0], rotate: true },
-  low:    { pos: [9.5, 0.45, 4.5], target: [0, 1.8, 0], rotate: true },
-  top:    { pos: [0.01, 22, 6], target: [0, 0, 0], rotate: true },
-};
-let camTween = null;
-document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x === b));
-  const v = VIEWS[b.dataset.view];
-  camTween = { t: 0, fromP: camera.position.clone(), toP: new THREE.Vector3(...v.pos), fromT: controls.target.clone(), toT: new THREE.Vector3(...v.target) };
-  controls.autoRotate = v.rotate; lastInteract = -10;
+const ground = new THREE.Mesh(new THREE.CircleGeometry(32, 128), groundMat);
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; ground.renderOrder = -1; scene.add(ground);
+/* ---------- the light pool (fountain nod) ---------- */
+const pool = new THREE.Mesh(new THREE.CircleGeometry(2.3, 72), new THREE.ShaderMaterial({
+  uniforms:U, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+  vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: GLSL_COMMON + `varying vec2 vUv; void main(){
+    float d=length(vUv-.5)*2.;
+    float rings=.5+.5*sin(d*22.-uTime*3.);
+    vec3 c=pal(d*.4-uTime*.08)*(.25+.75*pow(rings,6.))*smoothstep(1.,.85,d)*(1.+uKick*1.3*uAudio);
+    gl_FragColor=vec4(c*1.3,1.); }`
 }));
+pool.rotation.x = -Math.PI/2; pool.position.y = .03; scene.add(pool);
+const rim = new THREE.Mesh(new THREE.TorusGeometry(2.32,.07,10,96), new THREE.MeshStandardMaterial({color:0x222028, roughness:.4, metalness:.6}));
+rim.rotation.x = -Math.PI/2; rim.position.y=.04; scene.add(rim);
 
-// ---------------------------------------------------------------------------
-// UI wiring
-// ---------------------------------------------------------------------------
-// Picking a show jumps to it; the program keeps playing on from there unless Loop is on
-seqSelect.addEventListener('change', () => { startSequence(+seqSelect.value); seqSelect.blur(); });
-const loopBtn = document.getElementById('loopBtn');
-loopBtn.addEventListener('click', () => { show.loop = !show.loop; loopBtn.classList.toggle('on', show.loop); });
-palSelect.addEventListener('change', () => { paletteName = palSelect.value; });
-const mistBtn = document.getElementById('mistBtn');
-mistBtn.addEventListener('click', () => { mistOn = !mistOn; mistBtn.classList.toggle('on', mistOn); if (mistOn) mistBurst(0.8); else mistQueue = 0; });
-const hintEl = document.getElementById('hint');
-let hintHidden = false;
-function hideHint() { if (!hintHidden) { hintHidden = true; hintEl.style.opacity = 0; } }
-setTimeout(hideHint, 9000);
+/* ---------- projectors + visible beams ---------- */
+const beams = [];
+function projector(pos, target, angle, intensity, shadowRes=2048){
+  const L = new THREE.SpotLight(0xffffff, intensity, 0, angle, .38, 0);
+  L.position.copy(pos); L.target.position.copy(target);
+  L.map = rt.texture;
+  L.castShadow = true; L.shadow.mapSize.set(shadowRes,shadowRes);
+  L.shadow.camera.near = 2; L.shadow.camera.far = 70; L.shadow.bias = -0.0004; L.shadow.normalBias = .02;
+  scene.add(L, L.target);
 
-// Water sound (procedural — filtered noise that swells with the show)
-let audio = null;
-const soundBtn = document.getElementById('soundBtn');
-soundBtn.addEventListener('click', () => {
-  if (!audio) {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const len = ctx.sampleRate * 3, buf = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); let last = 0;
-      for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = (last + 0.04 * w) / 1.04; d[i] = w * 0.6 + last * 3.0; } }
-    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 280;
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
-    const gain = ctx.createGain(); gain.gain.value = 0;
-    src.connect(hp).connect(lp).connect(gain).connect(ctx.destination); src.start();
-    audio = { ctx, gain, lp, on: true };
-  } else {
-    audio.on = !audio.on;
-    if (audio.on) audio.ctx.resume(); else audio.gain.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.2);
-  }
-  soundBtn.classList.toggle('on', audio.on);
-});
+  const len = pos.distanceTo(target)*1.55, rad = Math.tan(angle)*len;
+  const cone = new THREE.ConeGeometry(rad, len, 64, 1, true);
+  cone.translate(0, -len/2, 0);
+  const beam = new THREE.Mesh(cone, new THREE.ShaderMaterial({
+    uniforms:{ uColor:{value:new THREE.Color()}, uLen:{value:len}, uOp:{value:.05} },
+    transparent:true, depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
+    vertexShader:`uniform float uLen; varying float vH; varying vec3 vN; varying vec3 vV;
+      void main(){ vH=-position.y/uLen; vec4 mv=modelViewMatrix*vec4(position,1.);
+        vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`uniform vec3 uColor; uniform float uOp; varying float vH; varying vec3 vN; varying vec3 vV;
+      void main(){ float edge=pow(abs(dot(vN,vV)),1.6);
+        float a=uOp*pow(max(1.-vH,0.),1.4)*smoothstep(0.,.04,vH)*edge;
+        gl_FragColor=vec4(uColor*a,1.); }`
+  }));
+  beam.position.copy(pos);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0), target.clone().sub(pos).normalize());
+  // beam cones and projector lenses are left out of the scene: the light lands on the trees without visible fixtures
+  return L;
+}
+projector(new THREE.Vector3(0, 17, 30), new THREE.Vector3(0, 7, -5), .6, 10);
+projector(new THREE.Vector3(-26, 14, -26), new THREE.Vector3(0, 7, -4), .55, 6.5, 1024);
+projector(new THREE.Vector3(28, 9, 10), new THREE.Vector3(1, 6, -4), .52, 5, 1024);
+// nothing that casts shadows moves, so render shadow maps once instead of every frame
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 
-// ---------------------------------------------------------------------------
-// Post-processing
-// ---------------------------------------------------------------------------
+/* ---------- drifting motes ---------- */
+{
+  const N = 420, p = new Float32Array(N*3), s = new Float32Array(N);
+  for(let i=0;i<N;i++){ const a=rng()*Math.PI*2, r=Math.sqrt(rng())*22;
+    p[i*3]=Math.cos(a)*r; p[i*3+1]=.4+rng()*12; p[i*3+2]=Math.sin(a)*r; s[i]=rng(); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(p,3));
+  g.setAttribute('seed', new THREE.BufferAttribute(s,1));
+  scene.add(new THREE.Points(g, new THREE.ShaderMaterial({
+    uniforms:U, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    vertexShader: GLSL_COMMON + `attribute float seed; varying vec3 vC; varying float vF;
+      void main(){ vec3 q=position+vec3(sin(uTime*.3+seed*6.28)*.7, sin(uTime*.45+seed*13.)*.45, cos(uTime*.27+seed*9.)*.7);
+        vec4 mv=modelViewMatrix*vec4(q,1.);
+        vF=.35+.65*pow(.5+.5*sin(uTime*(1.2+seed*2.)+seed*40.),3.);
+        vC=pal(seed+uTime*.03);
+        gl_PointSize=(28.+seed*30.)/-mv.z; gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`varying vec3 vC; varying float vF;
+      void main(){ float d=length(gl_PointCoord-.5); float a=smoothstep(.5,0.,d); gl_FragColor=vec4(vC*a*a*vF*1.4,1.); }`
+  })));
+}
+
+/* ---------- post ---------- */
 const composer = new EffectComposer(renderer);
-composer.setPixelRatio(Q.dpr);
-composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.45, 0.42);
+// guard: any invalid (NaN/inf) pixel would be smeared into black boxes by the bloom
+composer.addPass(new ShaderPass({
+  uniforms:{ tDiffuse:{value:null} },
+  vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader:`uniform sampler2D tDiffuse; varying vec2 vUv;
+    void main(){ vec4 c=texture2D(tDiffuse,vUv);
+      if(any(isnan(c)) || any(isinf(c))) c=vec4(0.,0.,0.,1.);
+      gl_FragColor=vec4(min(c.rgb,vec3(40.)),c.a); }`
+}));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .85, .55, .12);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
-// Dither: a sub-visible amount of noise (about one 8-bit step) applied last, so
-// the dark, slow glows on the floor don't show as banded stripes.
-composer.addPass(new ShaderPass({
-  uniforms: { tDiffuse: { value: null } },
-  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `
-    uniform sampler2D tDiffuse; varying vec2 vUv;
-    float ign(vec2 p){ return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
-    void main(){
-      vec4 c = texture2D(tDiffuse, vUv);
-      // triangular noise in [-1, 1] LSB: hides banding without visible grain
-      float n = ign(gl_FragCoord.xy) + ign(gl_FragCoord.xy + vec2(47.0, 113.0)) - 1.0;
-      c.rgb += n / 255.0;
-      gl_FragColor = c;
-    }`
-}));
 
-function syncScale() {
-  const h = renderer.getDrawingBufferSize(new THREE.Vector2()).y;
-  const s = h / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
-  waterMat.uniforms.uScale.value = s; mistMat.uniforms.uScale.value = s;
+/* ---------- look sequencing + UI ---------- */
+const seqSelect = document.getElementById('seqSelect');
+const seqName = document.getElementById('seqName'), seqBar = document.getElementById('seqBar');
+const loopBtn = document.getElementById('loopBtn');
+LOOKS.forEach((n,i) => seqSelect.add(new Option(n, i)));
+seqSelect.onchange = () => goTo(+seqSelect.value);
+
+let cur = 0, target = null, fadeT = 0, holdT = 0, loop = false;
+function setLoop(v){ loop = v; loopBtn.classList.toggle('on', v); }
+loopBtn.onclick = () => setLoop(!loop);
+function goTo(i){
+  i = ((i % LOOKS.length) + LOOKS.length) % LOOKS.length;
+  if(target!==null){ cur = target; }
+  if(i===cur){ target=null; U.uA.value=cur; U.uMix.value=0; updateDock(); return; }
+  target = i; fadeT = 0; holdT = 0;
+  U.uA.value = cur; U.uB.value = i; U.uMix.value = 0;
+  seqName.style.opacity = 0;
+  setTimeout(()=>{ seqName.textContent = LOOKS[i]; seqName.style.opacity = 1; }, 450);
+  updateDock();
 }
-syncScale();
+function updateDock(){ const v = String(target ?? cur); if(seqSelect.value !== v) seqSelect.value = v; }
+updateDock();
+
+const orbitBtn = document.getElementById('orbitBtn');
+orbitBtn.onclick = () => { controls.autoRotate = !controls.autoRotate; orbitBtn.classList.toggle('on', controls.autoRotate); };
+const mistBtn = document.getElementById('mistBtn');
+mistBtn.onclick = () => { const on = !mistBtn.classList.contains('on'); mistBtn.classList.toggle('on', on); scene.fog.density = on ? 0.016 : 0.005; };
+
+
+/* ---------- music sync: mic / tab audio / file / tap tempo ---------- */
+const BEATS_PER_LOOK = 32;            // switch looks every 8 bars while music drives the show
+const A = { mode:null, ctx:null, an:null, src:null, stream:null, el:null, freq:null, prev:null, wave:null,
+  hist:[], lastBeat:-10, intervals:[], bpm:0, level:.5, peak:.02, kick:0, beats:0, beatHead:0,
+  taps:[], tapInt:0, tapNext:0 };
+const musicEl = document.getElementById('music'), musicText = document.getElementById('musicText');
+const beatDot = document.getElementById('beatDot'), hintEl = document.getElementById('hint');
+const mBtns = { mic:document.getElementById('micBtn'), tab:document.getElementById('tabBtn'),
+  file:document.getElementById('fileBtn'), tap:document.getElementById('tapBtn') };
+const offBtn = document.getElementById('offBtn'), fileIn = document.getElementById('fileIn');
+if(!navigator.mediaDevices?.getDisplayMedia) mBtns.tab.hidden = true;
+if(!navigator.mediaDevices?.getUserMedia) mBtns.mic.hidden = true;
+
+let hintTimer;
+function say(msg, ms=5000){ hintEl.textContent = msg; hintEl.style.opacity = 1; clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => hintEl.style.opacity = 0, ms); }
+const now = () => performance.now()/1000;
+
+function setMode(m){
+  A.mode = m;
+  Object.entries(mBtns).forEach(([k,b]) => b.classList.toggle('on', k===m));
+  offBtn.hidden = !m; musicEl.classList.toggle('show', !!m);
+  A.hist = []; A.intervals = []; A.bpm = 0; A.beats = 0; A.lastBeat = -10; A.peak = .02;
+  if(m!=='tap'){ A.taps = []; A.tapInt = 0; }
+}
+function stopAudio(){
+  if(A.stream) A.stream.getTracks().forEach(t => t.stop());
+  if(A.el){ A.el.pause(); URL.revokeObjectURL(A.el.src); }
+  if(A.src) try{ A.src.disconnect(); }catch(e){}
+  A.stream = A.el = A.src = A.an = null;
+  setMode(null);
+}
+function ensureCtx(){
+  if(!A.ctx) A.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if(A.ctx.state === 'suspended') A.ctx.resume();
+  return A.ctx;
+}
+function attach(node, mode, toSpeakers){
+  const ctx = A.ctx, an = ctx.createAnalyser();
+  an.fftSize = 2048; an.smoothingTimeConstant = .15;
+  node.connect(an); if(toSpeakers) node.connect(ctx.destination);
+  A.src = node; A.an = an;
+  A.freq = new Uint8Array(an.frequencyBinCount); A.prev = new Float32Array(an.frequencyBinCount);
+  A.wave = new Float32Array(an.fftSize);
+  setMode(mode);
+}
+const raw = { echoCancellation:false, noiseSuppression:false, autoGainControl:false };
+
+async function startMic(){
+  stopAudio(); ensureCtx();
+  try{
+    A.stream = await navigator.mediaDevices.getUserMedia({ audio: raw });
+    attach(A.ctx.createMediaStreamSource(A.stream), 'mic', false);
+    say('Listening through the microphone. Play some music nearby');
+  }catch(e){ stopAudio(); say(location.protocol==='file:' ? 'The microphone needs the page served over http(s). Try the GitHub Pages link or a local server'
+                               : 'Microphone access was blocked. Allow it in the browser to sync to music'); }
+}
+async function startTab(){
+  stopAudio(); ensureCtx();
+  try{
+    const st = await navigator.mediaDevices.getDisplayMedia({ video:true, audio:{ ...raw, suppressLocalAudioPlayback:false },
+      selfBrowserSurface:'exclude', systemAudio:'include' });
+    if(!st.getAudioTracks().length){ st.getTracks().forEach(t=>t.stop()); stopAudio();
+      say('No audio was shared. Pick the tab with your music and turn on "Share tab audio"', 7000); return; }
+    st.getVideoTracks().forEach(t => t.stop());           // only the sound is needed
+    st.getAudioTracks()[0].addEventListener('ended', stopAudio);
+    A.stream = st;
+    attach(A.ctx.createMediaStreamSource(new MediaStream(st.getAudioTracks())), 'tab', false);
+    say('Syncing to the shared tab’s audio');
+  }catch(e){ stopAudio(); say('Tab sharing was cancelled'); }
+}
+function startFile(file){
+  stopAudio(); ensureCtx();
+  const el = new Audio(); el.src = URL.createObjectURL(file); el.loop = true; el.crossOrigin = 'anonymous';
+  A.el = el;
+  attach(A.ctx.createMediaElementSource(el), 'file', true);
+  el.play().catch(() => say('Press File again to start playback'));
+  say('Playing ' + file.name.replace(/\.[^.]+$/, ''));
+}
+function tap(){
+  const t = now();
+  if(A.mode !== 'tap'){ stopAudio(); setMode('tap'); }
+  if(A.taps.length && t - A.taps[A.taps.length-1] > 2) A.taps = [];
+  A.taps.push(t); if(A.taps.length > 6) A.taps.shift();
+  if(A.taps.length >= 2){
+    const d = []; for(let i=1;i<A.taps.length;i++) d.push(A.taps[i]-A.taps[i-1]);
+    A.tapInt = d.reduce((a,b)=>a+b,0)/d.length; A.bpm = 60/A.tapInt; A.tapNext = t + A.tapInt;
+  } else say('Keep tapping along with the beat (or press T)', 3500);
+  beat(t, true);
+}
+
+mBtns.mic.onclick = () => A.mode==='mic' ? stopAudio() : startMic();
+mBtns.tab.onclick = () => A.mode==='tab' ? stopAudio() : startTab();
+mBtns.file.onclick = () => { if(A.mode==='file'){ stopAudio(); return; } ensureCtx(); fileIn.click(); };
+fileIn.onchange = () => { if(fileIn.files[0]) startFile(fileIn.files[0]); fileIn.value = ''; };
+mBtns.tap.onclick = tap;
+offBtn.onclick = stopAudio;
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); const f = [...(e.dataTransfer?.files||[])].find(f => f.type.startsWith('audio/')); if(f) startFile(f); });
+
+// one beat: kick envelope, a ring from the pool, and the bar counter for look changes
+function beat(t, fromTap=false){
+  if(!fromTap && A.lastBeat > 0){
+    const iv = t - A.lastBeat;
+    if(iv > .25 && iv < 2.2){
+      let bpm = 60/iv; while(bpm < 78) bpm *= 2; while(bpm > 178) bpm /= 2;
+      A.intervals.push(bpm); if(A.intervals.length > 16) A.intervals.shift();
+      const s = [...A.intervals].sort((a,b)=>a-b); A.bpm = s[s.length>>1];
+    }
+  }
+  A.lastBeat = t; A.kick = 1; A.beats++;
+  U.uBeats.value[A.beatHead] = U.uTime.value; A.beatHead = (A.beatHead+1) % 6;
+  if(!loop && target===null && A.beats % BEATS_PER_LOOK === 0) goTo(cur+1);
+}
+
+// audio analysis runs on its own ~100 Hz clock so beat timing doesn't depend on the frame rate
+let lastTick = 0;
+function audioTick(){
+  if(A.mode === 'tap'){
+    const t = now();
+    if(A.tapInt && t >= A.tapNext){ beat(t, true); A.tapNext += A.tapInt; if(A.tapNext < t) A.tapNext = t + A.tapInt; }
+    return;
+  }
+  if(!A.an) return;
+  const t = now(), dt = lastTick ? Math.min(t - lastTick, .1) : .01; lastTick = t;
+  const an = A.an, binHz = A.ctx.sampleRate/an.fftSize;
+  an.getByteFrequencyData(A.freq);
+  const lo = Math.max(1, Math.floor(35/binHz)), hi = Math.ceil(160/binHz);
+  let flux = 0;
+  for(let i=lo;i<=hi;i++){ const v = A.freq[i]/255, d = v - A.prev[i]; if(d > 0) flux += d; A.prev[i] = v; }
+  flux /= (hi-lo+1);
+  an.getFloatTimeDomainData(A.wave);
+  let rms = 0; for(let i=0;i<A.wave.length;i++) rms += A.wave[i]*A.wave[i];
+  rms = Math.sqrt(rms/A.wave.length);
+  A.peak = Math.max(rms, A.peak*Math.exp(-dt/8), .004);
+  A.level += (Math.min(1, rms/A.peak) - A.level) * Math.min(1, dt*5);
+  A.hist.push([t, flux]); while(A.hist.length && t - A.hist[0][0] > 1.5) A.hist.shift();
+  let m = 0; A.hist.forEach(h => m += h[1]); m /= A.hist.length;
+  let v = 0; A.hist.forEach(h => v += (h[1]-m)**2); const sd = Math.sqrt(v/A.hist.length);
+  const minGap = A.bpm ? Math.min(.6*60/A.bpm, .42) : .28;
+  const warm = t - A.hist[0][0] > .5;
+  if(warm && flux > m + 1.5*sd && flux > .018 && t - A.lastBeat > minGap) beat(t);
+}
+setInterval(audioTick, 10);
+
+// per-frame: kick envelope, uniforms and the BPM readout
+function analyse(dt){
+  A.kick *= Math.exp(-dt*7);
+  U.uKick.value = A.kick;
+  U.uAudio.value += ((A.mode ? 1 : 0) - U.uAudio.value) * Math.min(1, dt*3);
+  if(A.mode){
+    beatDot.style.opacity = (.25 + .75*A.kick).toFixed(2);
+    const label = { mic:'Mic', tab:'Tab', file:'File', tap:'Tap' }[A.mode];
+    musicText.textContent = A.bpm ? `${label} · ${Math.round(A.bpm)} BPM` : `${label} · listening…`;
+  }
+}
+// music is "driving" while beats keep arriving; after a few silent seconds the timer takes over again
+const musicDriving = () => A.mode && (A.mode==='tap' ? A.tapInt>0 : now() - A.lastBeat < 5);
+
+addEventListener('keydown', e => {
+  if(e.target.tagName === 'SELECT') return;
+  if(e.key==='ArrowRight') goTo((target ?? cur)+1);
+  else if(e.key==='ArrowLeft') goTo((target ?? cur)-1);
+  else if(e.key===' '){ e.preventDefault(); setLoop(!loop); }
+  else if(e.key==='t' || e.key==='T') tap();
+});
+setTimeout(() => { document.getElementById('hint').style.opacity = 0; }, 7000);
+
+// JS mirror of the GLSL palette, to tint the light beams
+const PAL = [[.10,.32,1],[.58,.18,1],[1,.18,.66],[.12,1,.58]];
+function palJS(t, out){ t=(t%1+1)%1*4; const i=Math.floor(t)%4, f=t-Math.floor(t), s=f*f*(3-2*f);
+  const a=PAL[i], b=PAL[(i+1)%4]; return out.setRGB(a[0]+(b[0]-a[0])*s, a[1]+(b[1]-a[1])*s, a[2]+(b[2]-a[2])*s); }
+
 addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
-  floor.getRenderTarget().setSize(Math.floor(innerWidth * Q.dpr * Q.refl), Math.floor(innerHeight * Q.dpr * Q.refl));
-  syncScale();
 });
 
-// ---------------------------------------------------------------------------
-// Main loop
-// ---------------------------------------------------------------------------
 const clock = new THREE.Clock();
-const DT_CAP = +new URLSearchParams(location.search).get('dtcap') || 1 / 30;
-const tmpCol = new THREE.Color();
-let nextRandomMist = 18;
-startSequence(0);
-
-function tick() {
-  requestAnimationFrame(tick);
-  try { frame(); } catch (err) { console.error(err); }
-}
-function frame() {
-  const dt = Math.min(clock.getDelta(), DT_CAP);
-  const t = clock.elapsedTime;
-  nowT = t;
-
-  // --- show timeline
-  show.t += dt; show.blend = Math.min(1, show.blend + dt / 1.6);
-  const seq = SEQUENCES[show.idx], prev = show.prev >= 0 ? SEQUENCES[show.prev] : seq;
-  if (show.resting) {
-    show.restT += dt;
-    if (show.restT > REST) startSequence(show.next, true);
-  } else if (show.t > seq.dur) {
-    show.resting = true; show.restT = 0;
-    show.next = show.loop ? show.idx : (show.idx + 1) % SEQUENCES.length;
+let first = true, perfFrames = 0, perfTime = 0;
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), .1);
+  analyse(dt);
+  // the show breathes with the music: louder passages run a little faster
+  const speed = 1 + U.uAudio.value * THREE.MathUtils.clamp((A.level - .45) * .9, -.4, .55);
+  U.uTime.value += dt * speed;
+  const driving = musicDriving();
+  if(target!==null){
+    fadeT += dt; const k = Math.min(fadeT/FADE, 1);
+    U.uMix.value = k*k*(3-2*k);
+    if(k>=1){ cur = target; target = null; U.uA.value = cur; U.uMix.value = 0; holdT = 0; }
+  } else if(!loop && !driving){
+    holdT += dt; if(holdT >= HOLD) goTo(cur+1);
   }
-  document.getElementById('seqBar').style.width = (show.resting ? 0 : Math.min(1, show.t / seq.dur) * 100) + '%';
-  const restMul = show.resting ? 0 : 1;
-  const tb = show.blend * show.blend * (3 - 2 * show.blend);
+  const prog = target!==null ? 0 : driving ? (A.beats % BEATS_PER_LOOK)/BEATS_PER_LOOK : Math.min(holdT/HOLD,1);
+  seqBar.style.width = (target!==null ? 0 : prog*100) + '%';
 
-  if (mistOn && t > nextRandomMist) { mistBurst(0.5); nextRandomMist = t + 22 + Math.random() * 16; }
-
-  // --- jets: target strength from choreography + tap bursts, smoothed like a real valve
-  let activity = 0;
-  for (let i = 0; i < NJ; i++) {
-    const j = jets[i];
-    const f = j.kind === 'grid' ? 'grid' : 'ring';
-    let target = THREE.MathUtils.lerp(prev[f](j, show.prevT + show.t), seq[f](j, show.t), tb) * restMul;
-    // tap ripple: jets fire as the ring passes them
-    for (const tp of taps) {
-      const d = Math.hypot(j.x - tp.x, j.z - tp.z), age = t - tp.t, front = age * 5.0;
-      const w = Math.exp(-((d - front) ** 2) * 1.5) * Math.max(0, 1 - age / 2.2);
-      target = Math.max(target, w * (j.kind === 'ring' ? 0.8 : 1.0));
-    }
-    target = THREE.MathUtils.clamp(target, 0, 1);
-    const rate = target > j.strength ? 10 : 4.5;
-    j.strength += (target - j.strength) * (1 - Math.exp(-rate * dt));
-    activity += j.strength;
-
-    const hue = THREE.MathUtils.lerp(prev.hue(j, show.prevT + show.t), seq.hue(j, show.t), tb);
-    samplePalette(hue, tmpCol); j.color.lerp(tmpCol, 1 - Math.exp(-6 * dt));
-
-    if (j.strength > 0.03) emit(j, dt, j.strength);
-
-    floorU.uJets.value[i].z = j.strength;
-    floorU.uJetCol.value[i].copy(j.color);
-    ringMesh.setColorAt(i, tmpCol.copy(j.color).multiplyScalar(0.3 + 1.1 * j.strength));
-  }
-  ringMesh.instanceColor.needsUpdate = true;
-  activity /= NJ;
-  while (taps.length && t - taps[0].t > 2.5) taps.shift();
-
-  // tap flash ring expands and fades
-
-  updateParticles(dt);
-  updateMist(dt, t);
-
-  // --- colored lights follow the show
-
-  // --- audio follows splash activity
-  if (audio && audio.on) {
-    const g = 0.04 + activity * 0.22 + Math.min(0.1, splashCount / 4000);
-    audio.gain.gain.setTargetAtTime(g, audio.ctx.currentTime, 0.15);
-    audio.lp.frequency.setTargetAtTime(1800 + activity * 2600, audio.ctx.currentTime, 0.3);
-  }
-
-  // --- camera
-  if (camTween) {
-    camTween.t = Math.min(1, camTween.t + dt / 1.6);
-    const e = 1 - Math.pow(1 - camTween.t, 3);
-    camera.position.lerpVectors(camTween.fromP, camTween.toP, e);
-    controls.target.lerpVectors(camTween.fromT, camTween.toT, e);
-    if (camTween.t >= 1) camTween = null;
-  }
-  if (!controls.autoRotate && t - lastInteract > 8 && !camTween) controls.autoRotate = true;
+  beams.forEach((b,i) => palJS(U.uTime.value*.05 + i*.35, b.material.uniforms.uColor.value));
+  updateDock();
   controls.update();
-
-  floorU.uTime.value = t;
-  mistMat.uniforms.uTime.value = t;
-
+  renderer.setRenderTarget(rt); renderer.render(rtScene, rtCam); renderer.setRenderTarget(null);
   composer.render();
-}
-requestAnimationFrame(() => {
-  tick();
-  const l = document.getElementById('loader'); l.style.opacity = 0; setTimeout(() => l.remove(), 900);
+  // adaptive resolution: step down if the frame rate stays low
+  perfFrames++; perfTime += dt;
+  if(perfTime > 2.5){
+    const fps = perfFrames/perfTime; perfFrames = 0; perfTime = 0;
+    if(fps < 42 && pixelRatio > .75){ pixelRatio = Math.max(.75, pixelRatio-.25); renderer.setPixelRatio(pixelRatio); composer.setPixelRatio(pixelRatio); }
+  }
+  if(first){ first=false; const l=document.getElementById('loader'); l.style.opacity=0; setTimeout(()=>l.remove(),900); }
 });
 </script>
 </body>
