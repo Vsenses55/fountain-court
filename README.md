@@ -32,11 +32,13 @@ An endless tunnel of LED arches on the same backdrop, with the same bloom, mist 
 **Controls**
 
 - Drag to look around
+- Hover over the lights (or tap on a phone) to throw off sparks and send a ripple of light across the arches
 - **Show**: 8 light shows (Color Wash, Chase, Arc Sweep, Spiral, Twinkle, Heartbeat, Split, Rainbow Road); **Loop** repeats the current one
 - **Light**: LED palettes (the default "Tunnel" palette is sampled from the reference video)
 - **Speed**: Stop / Slow / Medium / Fast. You can also scroll, use W / S or ↑ / ↓, or press Space to stop
 - **View**: Inside (glide through the arches) or Afar (third person: follow the route from just above and behind; drag to adjust the angle)
 - **Route**: Straight or Winding (gentle left and right bends, with the view leaning into the turns)
+- **Sparks**: motes that drift off the arches in the colour of the LED they came from
 - **Mist** / **Sound**: haze and an ambient pad that changes chord with each show
 
 ## 03 · Projection Grove
