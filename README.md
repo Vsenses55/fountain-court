@@ -37,9 +37,10 @@ An endless tunnel of LED arches on the same backdrop, with the same bloom, mist 
 - **Light**: LED palettes (the default "Tunnel" palette is sampled from the reference video)
 - **Speed**: Stop / Slow / Medium / Fast. You can also scroll, use W / S or ↑ / ↓, or press Space to stop
 - **View**: Inside (glide through the arches) or Afar (third person: follow the route from just above and behind; drag to adjust the angle)
-- **Route**: Straight or Winding (gentle left and right bends, with the view leaning into the turns)
 - **Sparks**: motes that drift off the arches in the colour of the LED they came from
 - **Mist** / **Sound**: haze and an ambient pad that changes chord with each show
+- **Music**: sync the show to a track. **Tab** captures a shared browser tab's audio (YouTube, SoundCloud…; desktop Chrome / Edge, tick "Share tab audio"), **File** plays an audio file (or drag one onto the page). **✕** stops syncing. In File mode a player appears above the dock: play / pause (P), scrubber, repeat, and volume / mute (M).
+  While synced, each beat sends a wave of light racing down the tunnel, throws sparks off the arches and gives a little surge forward; shows change every 8 bars. Tab needs the page served over https (GitHub Pages) or `localhost`.
 
 ## 03 · Projection Grove
 
